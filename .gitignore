@@ -37,6 +37,8 @@ yarn-error.log*
 .DS_Store
 *.pem
 
+# Local-only docs, not meant to be pushed
+docs/
 
 # Mise
 .tool-versions
