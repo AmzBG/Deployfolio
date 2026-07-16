@@ -1,20 +1,20 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { mutate } from 'swr';
 import {
   updateProjectRequestSchema,
   type UpdateProjectRequest,
 } from '@repo/contracts';
 import { useProject, useUpdateProject } from '@/hooks/use-projects';
-import { ApiError } from '@/lib/api';
-import type { MockTechnology } from '@/lib/mock-projects';
-import { TechPicker } from '@/components/tech-picker';
+import { ApiError, apiUpload, apiDelete } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,46 +30,50 @@ import {
 } from '@/components/ui/select';
 
 export default function EditProjectPage() {
-  // Route folder is named [slug] to satisfy Next.js's constraint that
-  // sibling dynamic routes under /projects share one param name — the value
-  // passed here is actually the project id, not a URL slug.
   const params = useParams<{ slug: string }>();
   const router = useRouter();
   const { project, isLoading } = useProject(params.slug);
   const updateProject = useUpdateProject();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [technologies, setTechnologies] = useState<MockTechnology[]>([]);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+
+  const [isFormInitialized, setIsFormInitialized] = useState(false);
 
   const {
     register,
     handleSubmit,
     control,
+    reset,
     formState: { errors },
   } = useForm<UpdateProjectRequest>({
     resolver: zodResolver(updateProjectRequestSchema),
-    // `values` (not a one-time `reset()` in an effect) keeps the form in
-    // sync with `project` from the very first render — using `reset()`
-    // here left the Radix Select mounting one tick with an undefined
-    // value, which made it get stuck displaying blank.
-    values: project
-      ? {
-          title: project.title,
-          slug: project.slug,
-          shortDescription: project.shortDescription,
-          fullDescription: project.fullDescription,
-          deploymentUrl: project.deploymentUrl,
-          status: project.status,
-        }
-      : undefined,
   });
+
+  // Initialize form details EXACTLY ONCE upon initial load
+  useEffect(() => {
+    if (project && !isFormInitialized) {
+      reset({
+        title: project.title,
+        slug: project.slug,
+        shortDescription: project.shortDescription ?? '',
+        fullDescription: project.fullDescription ?? '',
+        deploymentUrl: project.deploymentUrl ?? '',
+        status: project.status,
+      });
+      setIsFormInitialized(true);
+    }
+  }, [project, isFormInitialized, reset]);
 
   const onSubmit = async (data: UpdateProjectRequest) => {
     if (!project) return;
 
     setIsSubmitting(true);
     try {
+      // Basic info modifications
       await updateProject(project.id, data);
-      toast.success('Project updated');
+
+      toast.success('Project updated successfully');
       router.push('/projects');
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
@@ -85,6 +89,51 @@ export default function EditProjectPage() {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleUploadMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !project) return;
+
+    setIsUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mediaType', 'IMAGE');
+      formData.append('sortOrder', '0');
+
+      await apiUpload(`/projects/${project.id}/media`, formData);
+      toast.success('Media uploaded');
+
+      mutate(`/projects/slug/${params.slug}`);
+      mutate(`/projects/id/${project.id}`);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to upload media');
+      }
+    } finally {
+      setIsUploadingMedia(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteMedia = async (mediaId: string) => {
+    if (!project) return;
+    try {
+      await apiDelete(`/projects/${project.id}/media/${mediaId}`);
+      toast.success('Media deleted');
+
+      mutate(`/projects/slug/${params.slug}`);
+      mutate(`/projects/id/${project.id}`);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to delete media');
+      }
     }
   };
 
@@ -176,20 +225,45 @@ export default function EditProjectPage() {
 
           <div className="space-y-2">
             <Label>Media</Label>
+            {project.media && project.media.length > 0 && (
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                {project.media.map((m) => (
+                  <div
+                    key={m.id}
+                    className="relative group rounded-md border bg-muted overflow-hidden"
+                  >
+                    <img
+                      src={m.publicUrl}
+                      alt={m.caption || ''}
+                      className="w-full h-32 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMedia(m.id)}
+                      className="absolute top-2 right-2 px-2 py-1 bg-red-600/90 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100 transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center gap-1.5 py-6 text-center">
-                <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                <p className="text-muted-foreground text-xs">
-                  Screenshot/video upload isn&apos;t available yet —
-                  ProjectMedia has no endpoint.
+                <Input
+                  type="file"
+                  accept="image/jpeg, image/png, image/webp, image/gif"
+                  onChange={handleUploadMedia}
+                  disabled={isUploadingMedia}
+                  className="max-w-[250px]"
+                />
+                <p className="text-muted-foreground text-xs mt-2">
+                  {isUploadingMedia
+                    ? 'Uploading...'
+                    : 'Upload screenshots or architecture diagrams.'}
                 </p>
               </CardContent>
             </Card>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Tech stack</Label>
-            <TechPicker selected={technologies} onChange={setTechnologies} />
           </div>
         </div>
 

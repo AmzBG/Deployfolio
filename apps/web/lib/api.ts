@@ -88,4 +88,24 @@ export async function apiUpload<T>(
   return res.json();
 }
 
+export async function apiDelete<T>(endpoint: string): Promise<T> {
+  const res = await fetch(`${API_URL}${endpoint}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    const error = await res
+      .json()
+      .catch(() => ({ message: 'An error occurred' }));
+    throw new ApiError(res.status, error.message || 'An error occurred');
+  }
+
+  const text = await res.text();
+  if (!text.trim()) {
+    return {} as T;
+  }
+  return JSON.parse(text) as T;
+}
+
 export { API_URL };

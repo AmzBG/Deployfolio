@@ -40,6 +40,8 @@ import {
   projectMediaUploadSchema,
   projectMediaUpdateSchema,
   projectsExploreQuerySchema,
+  addProjectTechnologySchema,
+  projectBySlugResponseSchema,
   type CreateProjectRequest,
   type ImportGithubProjectRequest,
   type ImportGithubProjectResponse,
@@ -51,6 +53,8 @@ import {
   type ProjectBySlugResponse,
   type ProjectsExploreQuery,
   type ExploreProjectsResponse,
+  type AddProjectTechnologyRequest,
+  type ProjectTechnologyResponse,
 } from '@repo/contracts';
 import { importGithubProjectRequestSchema as importGithubProjectOpenApiRequestSchema } from '../common/swagger/schemas';
 
@@ -184,7 +188,24 @@ export class ProjectsController {
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt.toISOString(),
       })),
-    };
+      technologies: (project.technologies ?? []).map((t) => ({
+        id: t.id,
+        projectId: t.projectId,
+        technologyId: t.technologyId,
+        source: t.source as 'SCANNER' | 'MANUAL' | 'BOTH',
+        evidence: t.evidence,
+        isPrimary: t.isPrimary,
+        sortOrder: t.sortOrder,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
+        technology: {
+          id: t.technology.id,
+          name: t.technology.name,
+          slug: t.technology.slug,
+          category: t.technology.category,
+        },
+      })),
+    } as unknown as ProjectByIdResponse;
   }
 
   @Post()
@@ -411,8 +432,16 @@ export class ProjectsController {
   ): Promise<ProjectBySlugResponse> {
     const project = await this.projectsService.getProjectBySlug(slug);
 
-    return {
-      ...project,
+    const result = {
+      id: project.id,
+      repositoryId: project.repositoryId,
+      createdByUserId: project.createdByUserId,
+      title: project.title,
+      slug: project.slug,
+      shortDescription: project.shortDescription,
+      fullDescription: project.fullDescription,
+      deploymentUrl: project.deploymentUrl,
+      status: project.status,
       createdAt: project.createdAt.toISOString(),
       updatedAt: project.updatedAt.toISOString(),
       publishedAt: project.publishedAt?.toISOString() ?? null,
@@ -426,11 +455,54 @@ export class ProjectsController {
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt.toISOString(),
       })),
+      technologies: (project.technologies ?? []).map((t) => ({
+        id: t.id,
+        projectId: t.projectId,
+        technologyId: t.technologyId,
+        source: t.source as 'SCANNER' | 'MANUAL' | 'BOTH',
+        evidence: t.evidence,
+        isPrimary: t.isPrimary,
+        sortOrder: t.sortOrder,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
+        technology: {
+          id: t.technology.id,
+          name: t.technology.name,
+          slug: t.technology.slug,
+          category: t.technology.category,
+        },
+      })),
     };
+
+    return projectBySlugResponseSchema.parse(result);
   }
 
   @Post(':id/media')
   @Roles(AccountType.DEVELOPER, AccountType.SUPER_ADMIN)
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+        mediaType: {
+          type: 'string',
+          enum: ['IMAGE', 'GIF', 'ARCHITECTURE_DIAGRAM'],
+          default: 'IMAGE',
+        },
+        caption: {
+          type: 'string',
+        },
+        sortOrder: {
+          type: 'integer',
+          default: 0,
+        },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Upload media for a project' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Media successfully uploaded.' })
@@ -514,6 +586,20 @@ export class ProjectsController {
   @Patch(':id/media/:mediaId')
   @Roles(AccountType.DEVELOPER, AccountType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update media details (caption, order)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        caption: {
+          type: 'string',
+          nullable: true,
+        },
+        sortOrder: {
+          type: 'integer',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 200, description: 'Media successfully updated.' })
   async updateProjectMedia(
     @CurrentUser() user: User,
@@ -557,5 +643,86 @@ export class ProjectsController {
     }
 
     return { success: true };
+  }
+
+  @Post(':id/technologies')
+  @Roles(AccountType.DEVELOPER, AccountType.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Add a technology to a project' })
+  @ApiResponse({ status: 201, description: 'Technology added successfully.' })
+  async addProjectTechnology(
+    @CurrentUser() user: User,
+    @Param('id') projectId: string,
+    @Body(new ZodValidationPipe(addProjectTechnologySchema))
+    body: AddProjectTechnologyRequest,
+  ): Promise<ProjectTechnologyResponse> {
+    const result = await this.projectsService.addProjectTechnology(
+      user,
+      projectId,
+      body,
+    );
+    return {
+      id: result.id,
+      projectId: result.projectId,
+      technologyId: result.technologyId,
+      source: result.source as 'SCANNER' | 'MANUAL' | 'BOTH',
+      isPrimary: result.isPrimary,
+      sortOrder: result.sortOrder,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+      technology: {
+        id: result.technology.id,
+        name: result.technology.name,
+        slug: result.technology.slug,
+        category: result.technology.category as
+          | 'LANGUAGE'
+          | 'FRAMEWORK'
+          | 'LIBRARY'
+          | 'DATABASE'
+          | 'CLOUD'
+          | 'DEVOPS'
+          | 'TOOL'
+          | 'OTHER',
+      },
+    };
+  }
+
+  @Delete(':id/technologies/:technologyId')
+  @Roles(AccountType.DEVELOPER, AccountType.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Remove a technology from a project' })
+  @ApiResponse({ status: 200, description: 'Technology removed successfully.' })
+  async removeProjectTechnology(
+    @CurrentUser() user: User,
+    @Param('id') projectId: string,
+    @Param('technologyId') technologyId: string,
+  ): Promise<ProjectTechnologyResponse> {
+    const result = await this.projectsService.removeProjectTechnology(
+      user,
+      projectId,
+      technologyId,
+    );
+    return {
+      id: result.id,
+      projectId: result.projectId,
+      technologyId: result.technologyId,
+      source: result.source as 'SCANNER' | 'MANUAL' | 'BOTH',
+      isPrimary: result.isPrimary,
+      sortOrder: result.sortOrder,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+      technology: {
+        id: result.technology.id,
+        name: result.technology.name,
+        slug: result.technology.slug,
+        category: result.technology.category as
+          | 'LANGUAGE'
+          | 'FRAMEWORK'
+          | 'LIBRARY'
+          | 'DATABASE'
+          | 'CLOUD'
+          | 'DEVOPS'
+          | 'TOOL'
+          | 'OTHER',
+      },
+    };
   }
 }
