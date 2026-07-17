@@ -1,11 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { toast } from 'sonner';
+//import { toast } from 'sonner';
 
-function notifyComingSoon(label: string) {
-  toast.info(`${label}: this feature isn't implemented yet.`);
-}
+//const NAV_LINKS = ['Home', 'Projects'];
 
 export function SiteHeader() {
   return (
@@ -16,22 +14,6 @@ export function SiteHeader() {
           Deployfolio
         </span>
       </Link>
-
-      <nav className="flex items-center gap-4 sm:gap-6">
-        <Link
-          href="/"
-          className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Home
-        </Link>
-        <button
-          type="button"
-          onClick={() => notifyComingSoon('Projects')}
-          className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Projects
-        </button>
-      </nav>
     </header>
   );
 }
