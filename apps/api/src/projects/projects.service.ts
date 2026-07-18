@@ -643,36 +643,45 @@ export class ProjectsService {
     const skip = (query.page - 1) * query.limit;
     const take = query.limit;
 
+    // Split into individual terms so a query like "java react" (or "java and
+    // react") matches projects that mention/use *both*, not the literal
+    // phrase — each term just needs to show up somewhere (title, either
+    // description, or a technology name), but every term must be satisfied.
+    const MAX_SEARCH_TERMS = 10;
+    const searchTerms = (query.search ?? '')
+      .split(/[\s,]+/)
+      .map((term) => term.trim())
+      .filter(
+        (term) =>
+          term.length > 0 && !['and', 'or'].includes(term.toLowerCase()),
+      )
+      .slice(0, MAX_SEARCH_TERMS);
+
     const where: Prisma.ProjectWhereInput = {
       status: ProjectStatus.PUBLISHED,
       // 1. Filter by userId if it's passed in the query
       ...(query.userId ? { createdByUserId: query.userId } : {}),
-      ...(query.search
+      ...(query.technology
+        ? { technologies: { some: { technology: { slug: query.technology } } } }
+        : {}),
+      ...(searchTerms.length > 0
         ? {
-            OR: [
-              { title: { contains: query.search, mode: 'insensitive' } },
-              {
-                shortDescription: {
-                  contains: query.search,
-                  mode: 'insensitive',
-                },
-              },
-              {
-                fullDescription: {
-                  contains: query.search,
-                  mode: 'insensitive',
-                },
-              },
-              {
-                technologies: {
-                  some: {
-                    technology: {
-                      name: { contains: query.search, mode: 'insensitive' },
+            AND: searchTerms.map((term) => ({
+              OR: [
+                { title: { contains: term, mode: 'insensitive' } },
+                { shortDescription: { contains: term, mode: 'insensitive' } },
+                { fullDescription: { contains: term, mode: 'insensitive' } },
+                {
+                  technologies: {
+                    some: {
+                      technology: {
+                        name: { contains: term, mode: 'insensitive' },
+                      },
                     },
                   },
                 },
-              },
-            ],
+              ],
+            })),
           }
         : {}),
     };
@@ -711,10 +720,56 @@ export class ProjectsService {
             orderBy: { sortOrder: 'asc' },
             select: {
               id: true,
+              projectId: true,
+              mediaType: true,
               publicUrl: true,
               caption: true,
               sortOrder: true,
+              createdAt: true,
+              updatedAt: true,
             },
+          },
+          repository: {
+            select: { htmlUrl: true },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              developerProfile: {
+                select: {
+                  displayName: true,
+                  headline: true,
+                  profilePictureUrl: true,
+                  githubUsername: true,
+                },
+              },
+            },
+          },
+          technologies: {
+            orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+            select: {
+              technology: {
+                select: { id: true, name: true, slug: true, category: true },
+              },
+            },
+          },
+          members: {
+            where: { user: { isNot: null } },
+            take: 4,
+            orderBy: { createdAt: 'asc' },
+            select: {
+              user: {
+                select: {
+                  id: true,
+                  developerProfile: {
+                    select: { displayName: true, profilePictureUrl: true },
+                  },
+                },
+              },
+            },
+          },
+          _count: {
+            select: { members: true },
           },
         },
       }),

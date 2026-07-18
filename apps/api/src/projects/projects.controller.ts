@@ -63,6 +63,7 @@ const PROJECT_MEDIA_ALLOWED_MIME_TYPES = [
   'image/gif',
 ];
 const PROJECT_MEDIA_DIR = join(process.cwd(), 'uploads', 'project-media');
+const ANONYMOUS_CONTRIBUTOR_NAME = 'Community member';
 
 if (!existsSync(PROJECT_MEDIA_DIR)) {
   mkdirSync(PROJECT_MEDIA_DIR, { recursive: true });
@@ -173,10 +174,53 @@ export class ProjectsController {
 
     return {
       data: result.data.map((project) => ({
-        ...project,
+        id: project.id,
+        title: project.title,
+        slug: project.slug,
+        logoUrl: project.logoUrl,
+        shortDescription: project.shortDescription,
+        fullDescription: project.fullDescription,
+        deploymentUrl: project.deploymentUrl,
+        status: project.status,
         createdAt: project.createdAt.toISOString(),
         updatedAt: project.updatedAt.toISOString(),
         publishedAt: project.publishedAt?.toISOString() ?? null,
+        repositoryUrl: project.repository?.htmlUrl ?? null,
+        media: project.media.map((m) => ({
+          id: m.id,
+          projectId: m.projectId,
+          mediaType: m.mediaType as 'IMAGE' | 'GIF' | 'ARCHITECTURE_DIAGRAM',
+          publicUrl: m.publicUrl,
+          caption: m.caption,
+          sortOrder: m.sortOrder,
+          createdAt: m.createdAt.toISOString(),
+          updatedAt: m.updatedAt.toISOString(),
+        })),
+        createdBy: project.createdBy
+          ? {
+              id: project.createdBy.id,
+              displayName:
+                project.createdBy.developerProfile?.displayName ??
+                ANONYMOUS_CONTRIBUTOR_NAME,
+              headline: project.createdBy.developerProfile?.headline ?? null,
+              profilePictureUrl:
+                project.createdBy.developerProfile?.profilePictureUrl ?? null,
+              githubUsername:
+                project.createdBy.developerProfile?.githubUsername ?? null,
+            }
+          : null,
+        technologies: project.technologies.map((pt) => pt.technology),
+        contributors: project.members
+          .filter((member) => member.user !== null)
+          .map((member) => ({
+            id: member.user!.id,
+            displayName:
+              member.user!.developerProfile?.displayName ??
+              ANONYMOUS_CONTRIBUTOR_NAME,
+            profilePictureUrl:
+              member.user!.developerProfile?.profilePictureUrl ?? null,
+          })),
+        contributorCount: project._count.members,
       })),
       meta: result.meta,
     };
