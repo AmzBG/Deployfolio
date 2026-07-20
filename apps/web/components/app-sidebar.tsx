@@ -12,6 +12,7 @@ import {
   UserCog,
   FolderGit2,
   Compass,
+  Bookmark,
   Mail,
 } from 'lucide-react';
 import { useUser } from '@/hooks/use-auth';
@@ -82,6 +83,11 @@ const recruiterNavItems: NavItem[] = [
     title: 'Browse Profiles', // Replaced Projects with Browse Profiles
     url: '/users',
     icon: Users,
+  },
+  {
+    title: 'Saved Projects',
+    url: '/saved-projects',
+    icon: Bookmark,
   },
   {
     title: 'Profile',

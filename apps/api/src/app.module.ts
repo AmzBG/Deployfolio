@@ -11,6 +11,7 @@ import { GithubModule } from './github/github.module';
 import { ProjectsModule } from './projects/projects.module';
 import { UsersModule } from './users/users.module';
 import { TechnologiesModule } from './technologies/technologies.module';
+import { SavedProjectsModule } from './saved-projects/saved-projects.module';
 import { ProjectInvitationsModule } from './project-invitations/project-invitations.module';
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ProjectInvitationsModule } from './project-invitations/project-invitati
     ProjectsModule,
     UsersModule,
     TechnologiesModule,
+    SavedProjectsModule,
     ProjectInvitationsModule,
   ],
   controllers: [AppController],
