@@ -14,8 +14,8 @@ import { TechnologiesModule } from './technologies/technologies.module';
 import { SavedProjectsModule } from './saved-projects/saved-projects.module';
 import { ProjectInvitationsModule } from './project-invitations/project-invitations.module';
 import { AdminModule } from './admin/admin.module';
-import { SavedCandidatesModule } from './saved-candidates/saved-candidates.module'; // <--- ADDED IMPORT
-
+import { SettingsModule } from './settings/settings.module';
+import { SavedCandidatesModule } from './saved-candidates/saved-candidates.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -35,7 +35,8 @@ import { SavedCandidatesModule } from './saved-candidates/saved-candidates.modul
     SavedProjectsModule,
     ProjectInvitationsModule,
     AdminModule,
-    SavedCandidatesModule, // <--- ADDED TO IMPORTS ARRAY
+    SettingsModule,
+    SavedCandidatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

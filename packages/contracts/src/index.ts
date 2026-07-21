@@ -7,4 +7,5 @@ export * from './projects';
 export * from './technologies';
 export * from './saved-projects';
 export * from './admin';
-export * from './saved-candidates'; // <--- ADDED THIS LINE
+export * from './settings';
+export * from './saved-candidates';
