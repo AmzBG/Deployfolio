@@ -1,0 +1,57 @@
+import {
+  ProjectRoleKey,
+  VerificationSource,
+  VerificationStatus,
+} from '@repo/db';
+import { mapProjectMember } from './project-member.mapper';
+
+const MEMBER_ID = '00000000-0000-4000-8000-000000000001';
+const PROJECT_ID = '00000000-0000-4000-8000-000000000002';
+const USER_ID = '00000000-0000-4000-8000-000000000003';
+
+describe('mapProjectMember', () => {
+  const originalApiUrl = process.env.API_URL;
+
+  beforeAll(() => {
+    process.env.API_URL = 'http://localhost:3001';
+  });
+
+  afterAll(() => {
+    if (originalApiUrl === undefined) delete process.env.API_URL;
+    else process.env.API_URL = originalApiUrl;
+  });
+
+  it('normalizes a relative profile-picture URL', () => {
+    const timestamp = new Date('2026-07-18T00:00:00.000Z');
+    const member = {
+      id: MEMBER_ID,
+      projectId: PROJECT_ID,
+      userId: USER_ID,
+      githubUserId: 123n,
+      githubUsername: 'developer',
+      role: ProjectRoleKey.OWNER,
+      contributionRoleLabel: null,
+      contributionSummary: null,
+      githubPermission: 'admin',
+      githubRoleName: null,
+      verificationStatus: VerificationStatus.VERIFIED,
+      verificationSource: VerificationSource.GITHUB_OWNER,
+      verifiedAt: timestamp,
+      addedByUserId: USER_ID,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      user: {
+        id: USER_ID,
+        developerProfile: {
+          displayName: 'Developer',
+          publicSlug: 'developer',
+          profilePictureUrl: '/uploads/profile-pictures/member.png',
+        },
+      },
+    } as Parameters<typeof mapProjectMember>[0];
+
+    expect(mapProjectMember(member).user?.profilePictureUrl).toBe(
+      'http://localhost:3001/uploads/profile-pictures/member.png',
+    );
+  });
+});

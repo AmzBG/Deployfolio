@@ -1,0 +1,73 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build", "^db:generate", "^db:build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "NODE_ENV",
+        "NEXT_PUBLIC_API_URL",
+        "API_URL",
+        "GITHUB_CLIENT_ID",
+        "GITHUB_CLIENT_SECRET",
+        "GITHUB_TOKEN_ENCRYPTION_KEY",
+        "GITHUB_TOKEN",
+        "ANALYTICS_HASH_SECRET"
+      ]
+    },
+    "lint": {
+      "dependsOn": ["^lint", "^build", "^db:generate", "^db:build"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types", "^build", "^db:generate", "^db:build"]
+    },
+    "dev": {
+      "dependsOn": ["^db:generate", "^db:build"],
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "NODE_ENV",
+        "MAILPIT_URL",
+        "APP_URL",
+        "NEXT_PUBLIC_API_URL",
+        "API_URL",
+        "GITHUB_CLIENT_ID",
+        "GITHUB_CLIENT_SECRET",
+        "GITHUB_TOKEN_ENCRYPTION_KEY",
+        "GITHUB_TOKEN",
+        "ANALYTICS_HASH_SECRET"
+      ]
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false,
+      "persistent": true,
+      "env": ["DATABASE_URL"]
+    },
+    "db:deploy": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:reset": {
+      "cache": false,
+      "persistent": true,
+      "env": ["DATABASE_URL"]
+    },
+    "db:seed": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "db:build": {
+      "dependsOn": ["db:generate"],
+      "cache": false
+    }
+  }
+}

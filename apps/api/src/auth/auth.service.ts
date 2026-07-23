@@ -1,0 +1,682 @@
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import * as crypto from 'crypto';
+import { PrismaService } from '../database/prisma.service';
+import { SessionService } from './session.service';
+import { MAIL_QUEUE, MAIL_JOBS } from '../mail/mail.constants';
+import {
+  AccountType,
+  AuthResponse,
+  SignupRequest,
+  LoginRequest,
+  UpdateProfileRequest,
+  UserResponse,
+  ChangePasswordRequest,
+  DeactivateAccountRequest,
+} from '@repo/contracts';
+
+const MAGIC_LINK_EXPIRY_MINUTES = 15;
+const PASSWORD_RESET_EXPIRY_MINUTES = 30;
+type AuthRole = AuthResponse['user']['role'];
+type UserNameSource = {
+  developerProfile?: { displayName: string | null } | null;
+  hiringProfile?: { organizationName: string | null } | null;
+};
+
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${derivedKey}`;
+}
+
+function verifyPassword(password: string, hash: string): boolean {
+  try {
+    if (!hash || typeof hash !== 'string' || !hash.includes(':')) return false;
+    const parts = hash.split(':');
+    if (parts.length !== 2) return false;
+
+    const salt = parts[0] as string;
+    const key = parts[1] as string;
+
+    const keyBuffer = Buffer.from(key, 'hex');
+    const derivedKey = crypto.scryptSync(password, salt, 64);
+    return crypto.timingSafeEqual(keyBuffer, derivedKey as Buffer);
+  } catch {
+    return false;
+  }
+}
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionService: SessionService,
+    @InjectQueue(MAIL_QUEUE) private readonly mailQueue: Queue,
+  ) {}
+
+  private resolveDisplayName(user: UserNameSource): string {
+    return (
+      user.developerProfile?.displayName ??
+      user.hiringProfile?.organizationName ??
+      'User'
+    );
+  }
+
+  private resolveRole(accountType: AccountType): AuthRole {
+    if (accountType === 'SUPER_ADMIN') {
+      return 'SUPER_ADMIN';
+    }
+
+    if (accountType === 'HIRING') {
+      return 'ORG_ADMIN';
+    }
+
+    return 'MEMBER';
+  }
+
+  async signup(data: SignupRequest) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existing) {
+      throw new ConflictException('User already exists');
+    }
+
+    if (data.accountType === 'DEVELOPER' && data.publicSlug) {
+      const existingSlug = await this.prisma.developerProfile.findUnique({
+        where: { publicSlug: data.publicSlug },
+      });
+      if (existingSlug) {
+        throw new ConflictException(
+          'The requested public slug is already taken',
+        );
+      }
+    }
+
+    const passwordHash = hashPassword(data.password);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: data.email,
+        passwordHash,
+        accountType: data.accountType,
+        isConfirmed: false,
+        developerProfile:
+          data.accountType === 'DEVELOPER'
+            ? {
+                create: {
+                  displayName: data.displayName!,
+                  publicSlug: data.publicSlug!,
+                },
+              }
+            : undefined,
+        hiringProfile:
+          data.accountType === 'HIRING'
+            ? {
+                create: {
+                  organizationName: data.organizationName!,
+                  organizationType: data.organizationType!,
+                },
+              }
+            : undefined,
+      },
+      include: {
+        developerProfile: true,
+        hiringProfile: true,
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: this.resolveDisplayName(user),
+        role: this.resolveRole(user.accountType),
+      },
+    };
+  }
+
+  async login(data: LoginRequest) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: data.email.toLowerCase() },
+      include: {
+        developerProfile: true,
+        hiringProfile: true,
+      },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (!user.isConfirmed) {
+      throw new UnauthorizedException(
+        'Please check your email and click the magic link to verify your account before logging in.',
+      );
+    }
+
+    const isValid = verifyPassword(data.password, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status === 'SUSPENDED') {
+      throw new ForbiddenException('This account has been suspended');
+    }
+    if (user.status === 'DEACTIVATED') {
+      throw new ForbiddenException(
+        'This account has been deactivated. Contact support to reactivate it.',
+      );
+    }
+
+    const sessionId = await this.sessionService.createSession(user.id);
+
+    return {
+      sessionId,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: this.resolveDisplayName(user),
+        role: this.resolveRole(user.accountType),
+      },
+    };
+  }
+
+  async requestMagicLink(email: string): Promise<{ success: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: {
+        developerProfile: true,
+        hiringProfile: true,
+      },
+    });
+
+    if (!user) {
+      this.logger.warn(`Magic link requested for non-existent email: ${email}`);
+      return { success: true };
+    }
+
+    if (user.status === 'SUSPENDED' || user.status === 'DEACTIVATED') {
+      this.logger.warn(
+        `Magic link requested for ${user.status.toLowerCase()} user ${user.id}`,
+      );
+      return { success: true };
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(
+      Date.now() + MAGIC_LINK_EXPIRY_MINUTES * 60 * 1000,
+    );
+
+    await this.prisma.magicLink.updateMany({
+      where: {
+        userId: user.id,
+        purpose: 'LOGIN',
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.magicLink.create({
+      data: {
+        userId: user.id,
+        token,
+        purpose: 'LOGIN',
+        expiresAt,
+      },
+    });
+
+    const appUrl = process.env.APP_URL;
+    if (!appUrl) {
+      throw new Error('APP_URL environment variable is not configured');
+    }
+    const magicLinkUrl = `${appUrl}/auth/verify?token=${token}`;
+
+    await this.mailQueue.add(MAIL_JOBS.SEND_MAGIC_LINK, {
+      email: user.email,
+      magicLink: magicLinkUrl,
+      userName: this.resolveDisplayName(user),
+    });
+
+    this.logger.log(`Magic link queued for user ${user.id}`);
+    return { success: true };
+  }
+
+  async verifyMagicLink(token: string): Promise<{
+    sessionId: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      role: 'SUPER_ADMIN' | 'MEMBER' | 'ORG_ADMIN';
+    };
+  }> {
+    const magicLink = await this.prisma.magicLink.findUnique({
+      where: { token },
+      include: {
+        user: {
+          include: {
+            developerProfile: true,
+            hiringProfile: true,
+          },
+        },
+      },
+    });
+
+    if (!magicLink || magicLink.purpose !== 'LOGIN') {
+      throw new NotFoundException('Invalid or expired magic link');
+    }
+
+    if (magicLink.usedAt) {
+      throw new NotFoundException('This magic link has already been used');
+    }
+
+    if (magicLink.expiresAt < new Date()) {
+      throw new NotFoundException('This magic link has expired');
+    }
+
+    if (magicLink.user.status === 'SUSPENDED') {
+      throw new ForbiddenException('This account has been suspended');
+    }
+    if (magicLink.user.status === 'DEACTIVATED') {
+      throw new ForbiddenException(
+        'This account has been deactivated. Contact support to reactivate it.',
+      );
+    }
+
+    await this.prisma.magicLink.update({
+      where: { id: magicLink.id },
+      data: { usedAt: new Date() },
+    });
+
+    if (!magicLink.user.isConfirmed) {
+      await this.prisma.user.update({
+        where: { id: magicLink.user.id },
+        data: { isConfirmed: true },
+      });
+    }
+
+    const sessionId = await this.sessionService.createSession(magicLink.userId);
+
+    this.logger.log(`User ${magicLink.userId} authenticated via magic link`);
+
+    return {
+      sessionId,
+      user: {
+        id: magicLink.user.id,
+        email: magicLink.user.email,
+        name: this.resolveDisplayName(magicLink.user),
+        role: this.resolveRole(magicLink.user.accountType),
+      },
+    };
+  }
+
+  async requestPasswordReset(email: string): Promise<{ success: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: {
+        developerProfile: true,
+        hiringProfile: true,
+      },
+    });
+
+    if (!user) {
+      this.logger.warn('Password reset requested for a non-existent email');
+      return { success: true };
+    }
+
+    if (user.status === 'SUSPENDED' || user.status === 'DEACTIVATED') {
+      this.logger.warn(
+        `Password reset requested for ${user.status.toLowerCase()} user ${user.id}`,
+      );
+      return { success: true };
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(
+      Date.now() + PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000,
+    );
+
+    await this.prisma.magicLink.updateMany({
+      where: {
+        userId: user.id,
+        purpose: 'PASSWORD_RESET',
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.magicLink.create({
+      data: {
+        userId: user.id,
+        token,
+        purpose: 'PASSWORD_RESET',
+        expiresAt,
+      },
+    });
+
+    const appUrl = process.env.APP_URL;
+    if (!appUrl) {
+      throw new Error('APP_URL environment variable is not configured');
+    }
+    const resetLink = `${appUrl}/reset-password?token=${token}`;
+
+    await this.mailQueue.add(MAIL_JOBS.SEND_PASSWORD_RESET, {
+      email: user.email,
+      resetLink,
+      userName: this.resolveDisplayName(user),
+    });
+
+    this.logger.log(`Password reset email queued for user ${user.id}`);
+    return { success: true };
+  }
+
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{
+    sessionId: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      role: 'SUPER_ADMIN' | 'MEMBER' | 'ORG_ADMIN';
+    };
+  }> {
+    const magicLink = await this.prisma.magicLink.findUnique({
+      where: { token },
+      include: {
+        user: {
+          include: {
+            developerProfile: true,
+            hiringProfile: true,
+          },
+        },
+      },
+    });
+
+    if (!magicLink || magicLink.purpose !== 'PASSWORD_RESET') {
+      throw new NotFoundException('Invalid or expired reset link');
+    }
+
+    if (magicLink.usedAt) {
+      throw new NotFoundException('This reset link has already been used');
+    }
+
+    if (magicLink.expiresAt < new Date()) {
+      throw new NotFoundException('This reset link has expired');
+    }
+
+    if (magicLink.user.status === 'SUSPENDED') {
+      throw new ForbiddenException('This account has been suspended');
+    }
+    if (magicLink.user.status === 'DEACTIVATED') {
+      throw new ForbiddenException(
+        'This account has been deactivated. Contact support to reactivate it.',
+      );
+    }
+
+    await this.prisma.magicLink.update({
+      where: { id: magicLink.id },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.user.update({
+      where: { id: magicLink.userId },
+      data: {
+        passwordHash: hashPassword(newPassword),
+        ...(magicLink.user.isConfirmed ? {} : { isConfirmed: true }),
+      },
+    });
+
+    // Resetting the password is the primary account-recovery path, so any
+    // session from before the reset (including one held by an attacker who
+    // triggered the compromise) must not survive it.
+    await this.sessionService.deleteAllUserSessions(magicLink.userId);
+    const sessionId = await this.sessionService.createSession(magicLink.userId);
+
+    this.logger.log(`User ${magicLink.userId} reset their password`);
+
+    return {
+      sessionId,
+      user: {
+        id: magicLink.user.id,
+        email: magicLink.user.email,
+        name: this.resolveDisplayName(magicLink.user),
+        role: this.resolveRole(magicLink.user.accountType),
+      },
+    };
+  }
+
+  async logout(sessionId: string): Promise<void> {
+    await this.sessionService.deleteSession(sessionId);
+  }
+
+  async getCurrentUser(sessionId: string) {
+    const user = await this.sessionService.validateSession(sessionId);
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: this.resolveDisplayName(user),
+      role: this.resolveRole(user.accountType),
+      isConfirmed: user.isConfirmed,
+    };
+  }
+
+  async updateProfile(
+    userId: string,
+    data: UpdateProfileRequest,
+  ): Promise<UserResponse> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        developerProfile: true,
+        hiringProfile: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.accountType === 'DEVELOPER' && data.publicSlug) {
+      const existingSlug = await this.prisma.developerProfile.findUnique({
+        where: { publicSlug: data.publicSlug },
+      });
+      if (existingSlug && existingSlug.userId !== userId) {
+        throw new ConflictException(
+          'The requested public slug is already taken',
+        );
+      }
+    }
+
+    const updatePayload: {
+      developerProfile?: {
+        update: {
+          displayName?: string;
+          publicSlug?: string;
+          headline?: string | null;
+          bio?: string | null;
+          location?: string | null;
+          profilePictureUrl?: string | null;
+          profilePictureOriginalUrl?: string | null;
+          profilePictureCropZoom?: number | null;
+          profilePictureCropX?: number | null;
+          profilePictureCropY?: number | null;
+          linkedinUrl?: string | null;
+          personalWebsiteUrl?: string | null;
+        };
+      };
+      hiringProfile?: {
+        update: {
+          organizationName?: string;
+          organizationType?:
+            | 'COMPANY'
+            | 'AGENCY'
+            | 'INDIVIDUAL'
+            | 'FREELANCE_CLIENT';
+          jobTitle?: string | null;
+          organizationWebsiteUrl?: string | null;
+        };
+      };
+    } = {};
+
+    if (user.accountType === 'DEVELOPER') {
+      updatePayload.developerProfile = {
+        update: {
+          displayName: data.displayName,
+          publicSlug: data.publicSlug,
+          headline: data.headline,
+          bio: data.bio,
+          location: data.location,
+          profilePictureUrl: data.profilePictureUrl,
+          profilePictureOriginalUrl: data.profilePictureOriginalUrl,
+          profilePictureCropZoom: data.profilePictureCropZoom,
+          profilePictureCropX: data.profilePictureCropX,
+          profilePictureCropY: data.profilePictureCropY,
+          linkedinUrl: data.linkedinUrl,
+          personalWebsiteUrl: data.personalWebsiteUrl,
+        },
+      };
+    } else if (user.accountType === 'HIRING') {
+      updatePayload.hiringProfile = {
+        update: {
+          organizationName: data.organizationName,
+          organizationType: data.organizationType,
+          jobTitle: data.jobTitle,
+          organizationWebsiteUrl: data.organizationWebsiteUrl,
+        },
+      };
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: updatePayload,
+      include: {
+        developerProfile: true,
+        hiringProfile: true,
+      },
+    });
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      accountType: updatedUser.accountType,
+      isConfirmed: updatedUser.isConfirmed,
+      developerProfile: updatedUser.developerProfile
+        ? {
+            id: updatedUser.developerProfile.id,
+            publicSlug: updatedUser.developerProfile.publicSlug,
+            displayName: updatedUser.developerProfile.displayName,
+            headline: updatedUser.developerProfile.headline ?? null,
+            bio: updatedUser.developerProfile.bio ?? null,
+            location: updatedUser.developerProfile.location ?? null,
+            profilePictureUrl:
+              updatedUser.developerProfile.profilePictureUrl ?? null,
+            profilePictureOriginalUrl:
+              updatedUser.developerProfile.profilePictureOriginalUrl ?? null,
+            profilePictureCropZoom:
+              updatedUser.developerProfile.profilePictureCropZoom ?? null,
+            profilePictureCropX:
+              updatedUser.developerProfile.profilePictureCropX ?? null,
+            profilePictureCropY:
+              updatedUser.developerProfile.profilePictureCropY ?? null,
+            githubUsername:
+              (
+                updatedUser.developerProfile as {
+                  githubUsername?: string | null;
+                }
+              ).githubUsername ?? null,
+            linkedinUrl:
+              (updatedUser.developerProfile as { linkedinUrl?: string | null })
+                .linkedinUrl ?? null,
+            personalWebsiteUrl:
+              (
+                updatedUser.developerProfile as {
+                  personalWebsiteUrl?: string | null;
+                }
+              ).personalWebsiteUrl ?? null,
+          }
+        : null,
+      hiringProfile: updatedUser.hiringProfile
+        ? {
+            id: updatedUser.hiringProfile.id,
+            organizationName: updatedUser.hiringProfile.organizationName,
+            organizationType: updatedUser.hiringProfile.organizationType,
+            jobTitle: updatedUser.hiringProfile.jobTitle ?? null,
+            organizationWebsiteUrl:
+              (
+                updatedUser.hiringProfile as {
+                  organizationWebsiteUrl?: string | null;
+                }
+              ).organizationWebsiteUrl ?? null,
+          }
+        : null,
+    };
+  }
+
+  async changePassword(
+    userId: string,
+    data: ChangePasswordRequest,
+  ): Promise<{ success: true }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isValid = verifyPassword(data.currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashPassword(data.newPassword) },
+    });
+
+    return { success: true };
+  }
+
+  async deactivateAccount(
+    userId: string,
+    data: DeactivateAccountRequest,
+  ): Promise<{ success: true }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isValid = verifyPassword(data.password, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Password is incorrect');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: 'DEACTIVATED', deactivatedAt: new Date() },
+    });
+    await this.sessionService.deleteAllUserSessions(userId);
+
+    this.logger.log(`User ${userId} deactivated their account`);
+    return { success: true };
+  }
+}

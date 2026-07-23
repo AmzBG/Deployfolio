@@ -1,0 +1,240 @@
+'use client';
+
+import { useState } from 'react';
+import { Search, Compass, X } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Pagination } from '@/components/pagination';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ProjectCard } from '@/components/project-card';
+import { useExploreProjects } from '@/hooks/use-projects';
+import { useTechnologies } from '@/hooks/use-technologies';
+import { ApiError } from '@/lib/api';
+
+function LoadingSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {[...Array(6)].map((_, i) => (
+        <Skeleton key={i} className="h-80 w-full rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
+export default function ExplorePage() {
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [sort, setSort] = useState<'latest' | 'oldest' | 'alphabetical'>(
+    'latest',
+  );
+  const [selectedTechnologySlugs, setSelectedTechnologySlugs] = useState<
+    string[]
+  >([]);
+
+  const { technologies, isLoading: technologiesLoading } = useTechnologies();
+  const { projects, meta, isLoading, error } = useExploreProjects({
+    page,
+    limit: 6,
+    search: search || undefined,
+    sort,
+    technology: selectedTechnologySlugs,
+  });
+
+  const selectedTechnologies =
+    technologies?.filter((technology) =>
+      selectedTechnologySlugs.includes(technology.slug),
+    ) ?? [];
+  const hasActiveFilters =
+    Boolean(search) || selectedTechnologySlugs.length > 0;
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearch(searchInput);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setSearchInput('');
+    setSelectedTechnologySlugs([]);
+    setPage(1);
+  };
+
+  const addTechnologyFilter = (slug: string) => {
+    setSelectedTechnologySlugs((current) =>
+      current.includes(slug) ? current : [...current, slug],
+    );
+    setPage(1);
+  };
+
+  const removeTechnologyFilter = (slug: string) => {
+    setSelectedTechnologySlugs((current) =>
+      current.filter((currentSlug) => currentSlug !== slug),
+    );
+    setPage(1);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-foreground text-2xl font-bold">Browse Projects</h1>
+      </div>
+
+      {/* Search, technology filter, and sort */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1">
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Input
+            type="search"
+            placeholder="Search projects or technologies..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+          />
+        </form>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select
+            value=""
+            onValueChange={addTechnologyFilter}
+            disabled={technologiesLoading}
+          >
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue
+                placeholder={
+                  technologiesLoading ? 'Loading...' : 'Add technology'
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {technologies
+                ?.filter((tech) => !selectedTechnologySlugs.includes(tech.slug))
+                .map((tech) => (
+                  <SelectItem key={tech.id} value={tech.slug}>
+                    {tech.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={sort}
+            onValueChange={(value) => {
+              setSort(value as 'latest' | 'oldest' | 'alphabetical');
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="latest">Latest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="alphabetical">Alphabetical</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Active filters */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedTechnologies.map((technology) => (
+            <span
+              key={technology.id}
+              className="border-primary bg-accent text-accent-foreground inline-flex items-center gap-1.5 rounded-full border py-1 pr-2 pl-3 text-xs font-bold"
+            >
+              {technology.name}
+              <button
+                type="button"
+                aria-label={`Remove ${technology.name} filter`}
+                onClick={() => removeTechnologyFilter(technology.slug)}
+                className="opacity-70 hover:opacity-100"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          {search && (
+            <span className="border-border bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-full border py-1 pr-2 pl-3 text-xs font-bold">
+              &ldquo;{search}&rdquo;
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => {
+                  setSearch('');
+                  setSearchInput('');
+                  setPage(1);
+                }}
+                className="opacity-70 hover:opacity-100"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-muted-foreground text-xs font-bold underline underline-offset-2"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      {/* Projects grid */}
+      {error ? (
+        <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
+          <p className="font-medium">Unable to load projects</p>
+          <p className="text-muted-foreground max-w-xs text-sm">
+            {error instanceof ApiError
+              ? error.message
+              : 'Something went wrong.'}
+          </p>
+        </Card>
+      ) : isLoading ? (
+        <LoadingSkeleton />
+      ) : projects.length === 0 ? (
+        <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
+          <Compass className="text-muted-foreground h-8 w-8" />
+          <p className="font-medium">No projects found</p>
+          <p className="text-muted-foreground max-w-xs text-sm">
+            {hasActiveFilters
+              ? 'Try adjusting your search or filters.'
+              : 'Be the first to publish a project!'}
+          </p>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+
+          {meta && meta.totalPages > 1 && (
+            <div className="flex flex-col items-center gap-3 pt-4 sm:flex-row sm:justify-between">
+              <p className="text-muted-foreground text-sm">
+                Page {meta.currentPage} of {meta.totalPages} ({meta.totalItems}{' '}
+                total projects)
+              </p>
+              <Pagination
+                page={meta.currentPage}
+                totalPages={meta.totalPages}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

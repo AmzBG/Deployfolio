@@ -1,0 +1,280 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import type { LucideIcon } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  UserCog,
+  FolderGit2,
+  Compass,
+  Bookmark,
+  Mail,
+  Activity,
+  ScrollText,
+  UserCheck,
+  ChartNoAxesCombined,
+} from 'lucide-react';
+import { useUser } from '@/hooks/use-auth';
+import { useInvitationPendingCount } from '@/hooks/use-project-invitations';
+import { cn } from '@/lib/utils';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+} from '@/components/ui/sidebar';
+
+interface NavItem {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  disabled?: boolean;
+}
+
+// Navigation items for DEVELOPER / standard users
+const orgNavItems: NavItem[] = [
+  {
+    title: 'Dashboard',
+    url: '/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    title: 'Explore',
+    url: '/explore',
+    icon: Compass,
+  },
+  {
+    title: 'Projects',
+    url: '/projects',
+    icon: FolderGit2,
+  },
+  {
+    title: 'Invitations',
+    url: '/invitations',
+    icon: Mail,
+  },
+  {
+    title: 'Analytics',
+    url: '/analytics',
+    icon: ChartNoAxesCombined,
+  },
+  {
+    title: 'Profile',
+    url: '/profile',
+    icon: UserCog,
+  },
+];
+
+// Navigation items specifically for RECRUITERS (HIRING role)
+const recruiterNavItems: NavItem[] = [
+  {
+    title: 'Dashboard',
+    url: '/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    title: 'Explore',
+    url: '/explore',
+    icon: Compass,
+  },
+  {
+    title: 'Browse Profiles',
+    url: '/users',
+    icon: Users,
+  },
+  {
+    title: 'Saved Candidates',
+    url: '/saved-candidates',
+    icon: UserCheck,
+  },
+  {
+    title: 'Saved Projects',
+    url: '/saved-projects',
+    icon: Bookmark,
+  },
+  {
+    title: 'Profile',
+    url: '/profile',
+    icon: UserCog,
+  },
+];
+
+// Navigation items for SUPER_ADMIN role
+const superAdminNavItems: NavItem[] = [
+  {
+    title: 'Overview',
+    url: '/admin',
+    icon: Activity,
+  },
+  {
+    title: 'Accounts',
+    url: '/admin/accounts',
+    icon: Users,
+  },
+  {
+    title: 'Projects',
+    url: '/admin/projects',
+    icon: FolderGit2,
+  },
+  {
+    title: 'Audit logs',
+    url: '/admin/logs',
+    icon: ScrollText,
+  },
+];
+
+const orgSecondaryNavItems: NavItem[] = [
+  {
+    title: 'Settings',
+    url: '/settings',
+    icon: Settings,
+  },
+];
+
+const superAdminSecondaryNavItems: NavItem[] = [
+  {
+    title: 'Settings',
+    url: '/settings',
+    icon: Settings,
+  },
+];
+
+export function AppSidebar() {
+  const pathname = usePathname();
+  const { user } = useUser({ redirectOnUnauthenticated: false });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const isSuperAdmin = mounted && user?.accountType === 'SUPER_ADMIN';
+  const isDeveloper = mounted && user?.accountType === 'DEVELOPER';
+  const isRecruiter = mounted && user?.accountType === 'HIRING';
+  const { pendingCount } = useInvitationPendingCount(isDeveloper);
+  const mainNavItems = isSuperAdmin
+    ? superAdminNavItems
+    : isRecruiter
+      ? recruiterNavItems
+      : isDeveloper
+        ? orgNavItems
+        : orgNavItems.filter((item) => item.url !== '/invitations');
+  const secondaryNavItems = isSuperAdmin
+    ? superAdminSecondaryNavItems
+    : orgSecondaryNavItems;
+
+  const isActive = (url: string) => {
+    if (url === '/dashboard' || url === '/admin') {
+      return pathname === url;
+    }
+    return pathname.startsWith(url);
+  };
+
+  return (
+    <Sidebar className="border-sidebar-border border-r">
+      <SidebarHeader className="px-5 py-6">
+        {/* Logo */}
+        <Link
+          href={isSuperAdmin ? '/admin' : '/dashboard'}
+          className="flex items-center gap-2.5"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-base">
+            <span className="text-lg font-bold text-white">✦</span>
+          </div>
+          <span className="text-sidebar-foreground text-xl font-semibold">
+            Deployfolio
+          </span>
+        </Link>
+      </SidebarHeader>
+
+      <SidebarContent className="overflow-x-hidden px-3">
+        {/* Main Navigation */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 mb-2 px-2 text-xs font-medium uppercase tracking-wider">
+            {isSuperAdmin ? 'Administration' : 'Main'}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild={!item.disabled}
+                    isActive={isActive(item.url)}
+                    disabled={item.disabled}
+                    className={cn(
+                      'h-11 gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+                      item.disabled && 'cursor-not-allowed opacity-50',
+                      isActive(item.url)
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/80'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    )}
+                  >
+                    {item.disabled ? (
+                      <div className="flex items-center gap-3">
+                        <item.icon className="text-sidebar-foreground/40 h-5 w-5" />
+                        <span>{item.title}</span>
+                        <span className="bg-sidebar-accent text-sidebar-foreground/60 ml-auto rounded px-1.5 py-0.5 text-xs">
+                          Soon
+                        </span>
+                      </div>
+                    ) : (
+                      <Link href={item.url}>
+                        <item.icon className="text-sidebar-foreground/60 h-5 w-5" />
+                        <span>{item.title}</span>
+                        {item.url === '/invitations' && pendingCount > 0 && (
+                          <span className="bg-primary-base ml-auto min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs text-white">
+                            {pendingCount > 99 ? '99+' : pendingCount}
+                          </span>
+                        )}
+                      </Link>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator className="my-4" />
+
+        {/* Secondary Navigation */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 mb-2 px-2 text-xs font-medium uppercase tracking-wider">
+            Support
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {secondaryNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    className={cn(
+                      'h-11 gap-3 rounded-lg px-3 text-sm font-medium transition-colors',
+                      isActive(item.url)
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/80'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    )}
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="text-sidebar-foreground/60 h-5 w-5" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+}

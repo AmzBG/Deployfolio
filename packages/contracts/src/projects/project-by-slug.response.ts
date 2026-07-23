@@ -1,0 +1,29 @@
+import { z } from 'zod';
+import { projectResponseSchema } from './project.response';
+import { projectTechnologyResponseSchema } from './project-technology.response';
+import { projectMemberResponseSchema } from './project-member.response';
+import { dateSchema, uuidSchema } from '../common';
+
+export const publicProjectMediaResponseSchema = z.object({
+  id: uuidSchema,
+  projectId: uuidSchema,
+  mediaType: z.enum(['IMAGE', 'GIF', 'ARCHITECTURE_DIAGRAM']),
+  publicUrl: z.string().url(),
+  caption: z.string().nullable().optional(),
+  sortOrder: z.number().int(),
+  createdAt: dateSchema,
+  updatedAt: dateSchema,
+});
+
+export type PublicProjectMediaResponse = z.infer<
+  typeof publicProjectMediaResponseSchema
+>;
+
+export const projectBySlugResponseSchema = projectResponseSchema.extend({
+  repositoryUrl: z.string().url(),
+  media: z.array(publicProjectMediaResponseSchema),
+  technologies: z.array(projectTechnologyResponseSchema).default([]),
+  members: z.array(projectMemberResponseSchema).default([]),
+});
+
+export type ProjectBySlugResponse = z.infer<typeof projectBySlugResponseSchema>;

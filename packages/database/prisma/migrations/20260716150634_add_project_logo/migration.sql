@@ -1,0 +1,14 @@
+-- AlterTable
+ALTER TABLE "Project" ADD COLUMN     "logoUrl" TEXT;
+
+-- AlterTable
+ALTER TABLE "ProjectMedia" ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+-- AlterTable
+ALTER TABLE "SavedProject" ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+-- CreateIndex
+CREATE INDEX "ProjectMember_addedByUserId_idx" ON "ProjectMember"("addedByUserId");
+
+-- CreateIndex
+CREATE INDEX "ProjectTechnology_addedByUserId_idx" ON "ProjectTechnology"("addedByUserId");
