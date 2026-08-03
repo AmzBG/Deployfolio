@@ -17,5 +17,5 @@ applications:
         paths:
           - node_modules/**/*
           - apps/web/.next/cache/**/*
+      buildPath: /
     appRoot: apps/web
-    buildPath: /
