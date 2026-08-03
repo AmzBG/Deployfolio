@@ -23,6 +23,9 @@ async function bootstrap() {
 
   setupSwagger(app);
 
-  await app.listen(3001);
+  const configuredPort = Number.parseInt(process.env.PORT ?? '3001', 10);
+  const port = Number.isNaN(configuredPort) ? 3001 : configuredPort;
+
+  await app.listen(port, '0.0.0.0');
 }
 void bootstrap();

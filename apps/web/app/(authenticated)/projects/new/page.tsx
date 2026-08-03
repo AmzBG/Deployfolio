@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Github, Loader2, PlusCircle, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import useSWR from 'swr';
-import { fetcher, apiPost, ApiError } from '@/lib/api';
+import { fetcher, apiPost, ApiError, API_URL } from '@/lib/api';
 import { useUser } from '@/hooks/use-auth';
 import {
   githubRepositoryListSchema,
@@ -56,9 +56,7 @@ export default function NewProjectPage() {
   );
 
   const handleConnectGithub = () => {
-    window.location.href = `${
-      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    }/github/connect`;
+    window.location.href = `${API_URL}/github/connect`;
   };
 
   const handleImport = async (repoUrl: string) => {

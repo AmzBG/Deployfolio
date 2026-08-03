@@ -1,0 +1,21 @@
+version: 1
+applications:
+  - frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - env | grep -e '^API_URL=' -e '^NEXT_PUBLIC_API_URL=' >> apps/web/.env.production || true
+            - npx turbo run build --filter=web
+      artifacts:
+        baseDirectory: apps/web/.next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - apps/web/.next/cache/**/*
+    appRoot: apps/web
+    buildPath: /

@@ -20,7 +20,10 @@ import { ProjectListCard } from '@/components/project-list-card';
 import { DeveloperSaveCandidate } from '@/components/developer-save-candidate';
 import { AnalyticsTracker } from '@/components/analytics-tracker';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const API_URL =
+  process.env.API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  'http://localhost:3001';
 
 const getDeveloperProfile = cache(async (slug: string) => {
   const response = await fetch(
