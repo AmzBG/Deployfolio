@@ -107,8 +107,8 @@ export class GithubService {
         'GitHub OAuth is not configured on the server',
       );
     }
-    const apiUrl = process.env.API_URL ?? 'http://localhost:3001';
-    const redirectUri = encodeURIComponent(`${apiUrl}/github/callback`);
+    const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+    const redirectUri = encodeURIComponent(`${appUrl}/api/github/callback`);
 
     const state = randomUUID();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes

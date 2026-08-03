@@ -1,0 +1,16 @@
+.git
+.github
+.next
+.turbo
+**/.next
+**/.turbo
+**/coverage
+**/dist
+**/node_modules
+**/uploads/*
+!**/uploads/**/.gitkeep
+.env
+.env.*
+*.log
+Dockerfile*
+README.md

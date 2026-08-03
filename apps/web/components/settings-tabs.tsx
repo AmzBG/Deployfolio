@@ -18,7 +18,7 @@ import {
 import type { UserResponse } from '@repo/contracts';
 import { useNotificationPreferences } from '@/hooks/use-notification-preferences';
 import { useAuth, useUser } from '@/hooks/use-auth';
-import { apiPost, ApiError } from '@/lib/api';
+import { apiPost, ApiError, API_URL } from '@/lib/api';
 import {
   Card,
   CardContent,
@@ -355,9 +355,7 @@ function ConnectedAccountsTab({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleConnectGithub = () => {
-    window.location.href = `${
-      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    }/github/connect`;
+    window.location.href = `${API_URL}/github/connect`;
   };
 
   const handleDisconnectGithub = async () => {
