@@ -1,8 +1,13 @@
 FROM node:22-bookworm-slim AS base
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && apt-get install -y --no-install-recommends ca-certificates curl openssl \
+    && curl --fail --silent --show-error --retry 3 \
+        https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+        --output /etc/ssl/certs/aws-rds-global-bundle.pem \
     && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/aws-rds-global-bundle.pem
 
 WORKDIR /app
 
