@@ -22,7 +22,9 @@ export class MailService {
         region: process.env.AWS_REGION ?? 'us-west-2',
       });
       this.sesFromEmail = process.env.SES_FROM_EMAIL;
-      this.logger.log('Amazon SES client initialized');
+      this.logger.log(
+        `Amazon SES client initialized with sender: ${this.sesFromEmail}`,
+      );
     } else if (this.isProduction) {
       this.logger.error(
         'SES_FROM_EMAIL is not set. Production email functionality is disabled.',
