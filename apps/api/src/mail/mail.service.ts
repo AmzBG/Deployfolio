@@ -8,6 +8,9 @@ export class MailService {
   private mailpit: MailpitClient | null = null;
   private ses: SESv2Client | null = null;
   private sesFromEmail: string | null = null;
+  private brevoApiKey: string | null = null;
+  private brevoFromEmail: string | null = null;
+  private brevoFromName = 'Deployfolio';
   private readonly isProduction = process.env.NODE_ENV === 'production';
 
   constructor() {
@@ -16,6 +19,22 @@ export class MailService {
       this.mailpit = new MailpitClient(process.env.MAILPIT_URL);
       this.logger.log(
         `Mailpit client initialized with URL: ${process.env.MAILPIT_URL}`,
+      );
+    } else if (
+      this.isProduction &&
+      process.env.EMAIL_PROVIDER === 'brevo' &&
+      process.env.BREVO_API_KEY &&
+      process.env.BREVO_FROM_EMAIL
+    ) {
+      this.brevoApiKey = process.env.BREVO_API_KEY;
+      this.brevoFromEmail = process.env.BREVO_FROM_EMAIL;
+      this.brevoFromName = process.env.BREVO_FROM_NAME || 'Deployfolio';
+      this.logger.log(
+        `Brevo email client initialized with sender: ${this.brevoFromEmail}`,
+      );
+    } else if (this.isProduction && process.env.EMAIL_PROVIDER === 'brevo') {
+      this.logger.error(
+        'BREVO_API_KEY and BREVO_FROM_EMAIL must be set when EMAIL_PROVIDER is brevo. Production email functionality is disabled.',
       );
     } else if (this.isProduction && process.env.SES_FROM_EMAIL) {
       this.ses = new SESv2Client({
@@ -52,6 +71,32 @@ export class MailService {
           Text: params.text || '',
           HTML: params.html || '',
         });
+      } else if (this.brevoApiKey && this.brevoFromEmail) {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'api-key': this.brevoApiKey,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: {
+              email: this.brevoFromEmail,
+              name: this.brevoFromName,
+            },
+            to: [{ email: params.to }],
+            subject: params.subject,
+            ...(params.text ? { textContent: params.text } : {}),
+            ...(params.html ? { htmlContent: params.html } : {}),
+          }),
+        });
+
+        if (!response.ok) {
+          const responseBody = await response.text();
+          throw new Error(
+            `Brevo email request failed with status ${response.status}: ${responseBody.slice(0, 500)}`,
+          );
+        }
       } else if (this.ses && this.sesFromEmail) {
         await this.ses.send(
           new SendEmailCommand({
