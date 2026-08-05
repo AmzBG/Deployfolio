@@ -1,7 +1,7 @@
 'use client';
 import { useState, Suspense, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -104,7 +104,6 @@ function RandomProjects() {
 
 function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
   const {
@@ -129,7 +128,7 @@ function LoginForm() {
             ? rawRedirect
             : '/dashboard';
 
-      router.push(redirectPath);
+      window.location.replace(redirectPath);
     } catch (error) {
       toast.error(
         error instanceof ApiError ? error.message : 'Unable to log in',
