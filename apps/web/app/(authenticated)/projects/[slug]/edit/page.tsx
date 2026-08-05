@@ -342,8 +342,6 @@ export default function EditProjectPage() {
       <div className="space-y-4">
         <Link
           href={`/projects/preview/${project.id}`}
-          target="_blank"
-          rel="noreferrer"
           className="text-muted-foreground inline-flex items-center gap-1.5 text-sm hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -378,11 +376,7 @@ export default function EditProjectPage() {
             <ProjectInvitationsManager projectId={project.id} />
           )}
           <Button asChild variant="outline" size="sm">
-            <Link
-              href={`/projects/preview/${project.id}`}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <Link href={`/projects/preview/${project.id}`}>
               <ExternalLink className="h-3.5 w-3.5" />
               Preview
             </Link>
