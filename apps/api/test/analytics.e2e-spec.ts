@@ -1,6 +1,7 @@
 import { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
+import { randomUUID } from 'crypto';
 import { Server } from 'http';
 import { AccountType, ProjectStatus, RepositoryVisibility } from '@repo/db';
 import request from 'supertest';
@@ -23,6 +24,7 @@ describe('AnalyticsController (e2e)', () => {
   let ownerId: string;
   let otherDeveloperId: string;
   let projectId: string;
+  let originalAnalyticsHashSecret: string | undefined;
 
   const projectSlug = 'analytics-e2e-project';
   const ownerEmail = 'analytics-owner-e2e@test.com';
@@ -30,6 +32,10 @@ describe('AnalyticsController (e2e)', () => {
   const githubRepoId = 987654321n;
 
   beforeAll(async () => {
+    originalAnalyticsHashSecret = process.env.ANALYTICS_HASH_SECRET;
+    process.env.ANALYTICS_HASH_SECRET =
+      'analytics-e2e-hash-secret-with-at-least-32-characters';
+
     jest.spyOn(AuthGuard.prototype, 'canActivate').mockImplementation(function (
       this: GuardWithReflector,
       context: ExecutionContext,
@@ -121,11 +127,16 @@ describe('AnalyticsController (e2e)', () => {
     await cleanUp();
     await app.close();
     jest.restoreAllMocks();
+    if (originalAnalyticsHashSecret === undefined) {
+      delete process.env.ANALYTICS_HASH_SECRET;
+    } else {
+      process.env.ANALYTICS_HASH_SECRET = originalAnalyticsHashSecret;
+    }
   });
 
   it('records a public project view and exposes it only to the owner', async () => {
     const event = {
-      eventId: '00000000-0000-4000-8000-000000000001',
+      eventId: randomUUID(),
       eventType: 'PROJECT_VIEW',
       projectSlug,
     };
