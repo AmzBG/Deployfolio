@@ -5,3 +5,5 @@ export * from './users-explore.request';
 export * from './users-explore.response';
 export * from './user-public.response';
 export * from './developer-public-profile.response';
+export * from './user-enhance-profile.request';
+export * from './user-enhance-profile.response';

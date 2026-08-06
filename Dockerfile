@@ -1,5 +1,7 @@
 FROM node:22-bookworm-slim AS base
 
+RUN npm install --global npm@11.6.2
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl openssl \
     && curl --fail --silent --show-error --retry 3 \
