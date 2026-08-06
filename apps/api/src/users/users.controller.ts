@@ -1,4 +1,12 @@
-import { Controller, Get, Patch, Query, Param, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Query,
+  Param,
+  Body,
+} from '@nestjs/common';
 import {
   ApiOperation,
   ApiResponse,
@@ -12,10 +20,14 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
   usersExploreQuerySchema,
+  enhanceProfileRequestSchema,
+  enhanceProfileResponseSchema,
   updateProfileRequestSchema,
   publicUserResponseSchema,
   exploreUsersResponseSchema,
   type UsersExploreQuery,
+  type EnhanceProfileRequest,
+  type EnhanceProfileResponse,
   type UpdateProfileRequest,
   type ExploreUsersResponse,
   developerPublicProfileResponseSchema,
@@ -52,6 +64,19 @@ export class UsersController {
       data: result.data,
       meta: result.meta,
     });
+  }
+
+  @Post('me/enhance')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Enhance the logged-in developer profile with AI' })
+  async enhanceProfile(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(enhanceProfileRequestSchema))
+    body: EnhanceProfileRequest,
+  ): Promise<EnhanceProfileResponse> {
+    return enhanceProfileResponseSchema.parse(
+      await this.usersService.enhanceProfile(userId, body.headline, body.bio),
+    );
   }
 
   @Get('id/:id')

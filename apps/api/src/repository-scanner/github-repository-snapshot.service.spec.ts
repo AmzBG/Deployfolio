@@ -4,6 +4,7 @@ import {
   GithubService,
 } from '../github/github.service';
 import { GithubRepositorySnapshotService } from './github-repository-snapshot.service';
+import type { AiService } from '../ai/ai.service';
 
 describe('GithubRepositorySnapshotService', () => {
   let service: GithubRepositorySnapshotService;
@@ -13,12 +14,17 @@ describe('GithubRepositorySnapshotService', () => {
     fetchRepositoryDirectoryFilePaths: jest.fn(),
     fetchRepositoryFileText: jest.fn(),
   };
+  const mockAiService = {
+    summarizeRepository: jest.fn().mockResolvedValue(null),
+  };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     mockGithubService.fetchRepositoryDirectoryFilePaths.mockResolvedValue([]);
+    mockAiService.summarizeRepository.mockResolvedValue(null);
     service = new GithubRepositorySnapshotService(
       mockGithubService as unknown as GithubService,
+      mockAiService as unknown as AiService,
     );
   });
 
@@ -187,12 +193,12 @@ describe('GithubRepositorySnapshotService', () => {
       'Dockerfile',
       expect.anything(),
     );
-    expect(mockGithubService.fetchRepositoryFileText).not.toHaveBeenCalledWith(
-      expect.anything(),
+    expect(mockGithubService.fetchRepositoryFileText).toHaveBeenCalledWith(
+      { owner: 'owner', repo: 'repo' },
       'README.md',
-      expect.anything(),
+      'main',
     );
-    expect(mockGithubService.fetchRepositoryFileText).toHaveBeenCalledTimes(1);
+    expect(mockGithubService.fetchRepositoryFileText).toHaveBeenCalledTimes(2);
   });
 
   it('skips a timed-out optional file and completes the preview', async () => {

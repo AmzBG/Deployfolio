@@ -12,6 +12,7 @@ import { GithubRepositorySnapshotService } from '../repository-scanner/github-re
 import { GithubService } from '../github/github.service';
 import { ProjectsService } from './projects.service';
 import type { ProjectAccessService } from './project-access.service';
+import type { AiService } from '../ai/ai.service';
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const REPOSITORY_ID = '00000000-0000-4000-8000-000000000002';
@@ -42,6 +43,7 @@ describe('ProjectsService GitHub import', () => {
           capabilities: { canPublish: true },
         }),
       } as unknown as ProjectAccessService,
+      createAiServiceMock() as unknown as AiService,
     );
   });
 
@@ -369,6 +371,7 @@ describe('ProjectsService public technology filters', () => {
       createSnapshotServiceMock() as unknown as GithubRepositorySnapshotService,
       {} as GithubService,
       {} as ProjectAccessService,
+      createAiServiceMock() as unknown as AiService,
     );
     const query = projectsExploreQuerySchema.parse({
       technology: ['react', 'typescript'],
@@ -426,6 +429,7 @@ describe('ProjectsService collaboration access', () => {
     {} as GithubRepositorySnapshotService,
     {} as GithubService,
     projectAccess as unknown as ProjectAccessService,
+    createAiServiceMock() as unknown as AiService,
   );
   const memberUser = {
     id: USER_ID,
@@ -499,6 +503,7 @@ describe('ProjectsService member removal', () => {
     {} as GithubRepositorySnapshotService,
     {} as GithubService,
     projectAccess as unknown as ProjectAccessService,
+    createAiServiceMock() as unknown as AiService,
   );
   const owner = {
     id: USER_ID,
@@ -663,6 +668,12 @@ function createGithubServiceMock() {
       ownerType: 'User',
       isFork: false,
     }),
+  };
+}
+
+function createAiServiceMock() {
+  return {
+    generateEmbedding: jest.fn().mockResolvedValue([]),
   };
 }
 

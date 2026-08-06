@@ -23,7 +23,8 @@
         "GITHUB_CLIENT_SECRET",
         "GITHUB_TOKEN_ENCRYPTION_KEY",
         "GITHUB_TOKEN",
-        "ANALYTICS_HASH_SECRET"
+        "ANALYTICS_HASH_SECRET",
+        "OPENAI_API_KEY"
       ]
     },
     "lint": {
@@ -55,7 +56,8 @@
         "GITHUB_CLIENT_SECRET",
         "GITHUB_TOKEN_ENCRYPTION_KEY",
         "GITHUB_TOKEN",
-        "ANALYTICS_HASH_SECRET"
+        "ANALYTICS_HASH_SECRET",
+        "OPENAI_API_KEY"
       ]
     },
     "db:generate": {
