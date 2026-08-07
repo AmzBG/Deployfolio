@@ -4,6 +4,8 @@ applications:
       phases:
         preBuild:
           commands:
+            - npm install --global npm@11.6.2
+            - npm --version
             - npm ci
         build:
           commands:
