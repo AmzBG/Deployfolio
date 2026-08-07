@@ -28,12 +28,14 @@ describe('ProjectsService GitHub import', () => {
   let prisma: ReturnType<typeof createPrismaMock>;
   let snapshotService: ReturnType<typeof createSnapshotServiceMock>;
   let githubService: ReturnType<typeof createGithubServiceMock>;
+  let aiService: ReturnType<typeof createAiServiceMock>;
 
   beforeEach(() => {
     tx = createTransactionMock();
     prisma = createPrismaMock(tx);
     snapshotService = createSnapshotServiceMock();
     githubService = createGithubServiceMock();
+    aiService = createAiServiceMock();
     service = new ProjectsService(
       prisma as unknown as PrismaService,
       snapshotService as unknown as GithubRepositorySnapshotService,
@@ -43,7 +45,7 @@ describe('ProjectsService GitHub import', () => {
           capabilities: { canPublish: true },
         }),
       } as unknown as ProjectAccessService,
-      createAiServiceMock() as unknown as AiService,
+      aiService as unknown as AiService,
     );
   });
 
@@ -126,6 +128,50 @@ describe('ProjectsService GitHub import', () => {
     expect(
       response.project.technologies.map((technology) => technology.slug),
     ).toEqual(['react', 'typescript']);
+  });
+
+  it('generates GitHub import embeddings before opening the transaction', async () => {
+    aiService.generateEmbedding.mockImplementation(() => {
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      return Promise.resolve([0.1, 0.2]);
+    });
+
+    await service.importGithubProject(USER_ID, {
+      repositoryUrl: 'https://github.com/vercel/next.js',
+    });
+
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('generates manual project embeddings before opening the transaction', async () => {
+    aiService.generateEmbedding.mockImplementation(() => {
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      return Promise.resolve([0.1, 0.2]);
+    });
+
+    await service.createProject(USER_ID, {
+      repositoryId: REPOSITORY_ID,
+      title: 'Next.js',
+      slug: 'next-js',
+      shortDescription: 'The React Framework',
+    });
+
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('generates project update embeddings before opening the transaction', async () => {
+    aiService.generateEmbedding.mockImplementation(() => {
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      return Promise.resolve([0.1, 0.2]);
+    });
+
+    await service.updateProject(
+      { id: USER_ID, accountType: 'DEVELOPER' } as never,
+      PROJECT_ID,
+      { title: 'Updated Next.js' },
+    );
+
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it('defaults the title and short description from GitHub metadata', async () => {
@@ -614,6 +660,7 @@ function createTransactionMock() {
     projectTechnology: {
       upsert: jest.fn().mockResolvedValue({ id: 'project-technology-id' }),
     },
+    $executeRaw: jest.fn().mockResolvedValue(1),
   };
 }
 
@@ -625,11 +672,23 @@ function createPrismaMock(tx: ReturnType<typeof createTransactionMock>) {
         accountType: 'DEVELOPER',
       }),
     },
+    repository: {
+      findUnique: jest.fn().mockResolvedValue({
+        id: REPOSITORY_ID,
+        githubRepoId: 70107786n,
+        htmlUrl: 'https://github.com/vercel/next.js',
+      }),
+    },
     project: {
+      findFirst: jest.fn().mockResolvedValue(null),
       findUnique: jest.fn().mockResolvedValue({
         id: PROJECT_ID,
         createdByUserId: USER_ID,
+        title: 'Next.js',
         slug: 'next-js',
+        shortDescription: 'The React Framework',
+        fullDescription: null,
+        status: 'DRAFT',
         publishedAt: null,
         repository: { htmlUrl: 'https://github.com/vercel/next.js' },
       }),

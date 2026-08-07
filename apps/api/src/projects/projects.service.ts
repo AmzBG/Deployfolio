@@ -83,6 +83,16 @@ export class ProjectsService {
     return status as ProjectStatus;
   }
 
+  private async generateProjectEmbeddingVector(
+    title: string,
+    shortDescription?: string | null,
+    fullDescription?: string | null,
+  ): Promise<string | null> {
+    const textToEmbed = `${title} ${shortDescription || ''} ${fullDescription || ''}`;
+    const embedding = await this.aiService.generateEmbedding(textToEmbed);
+    return embedding.length > 0 ? `[${embedding.join(',')}]` : null;
+  }
+
   async importGithubProject(
     userId: string,
     data: ImportGithubProjectRequest,
@@ -134,6 +144,11 @@ export class ProjectsService {
           analysis.repository.description);
     const fullDescription =
       data.fullDescription ?? analysis.aiPitch?.fullDescription ?? null;
+    const embeddingVector = await this.generateProjectEmbeddingVector(
+      title,
+      shortDescription,
+      fullDescription,
+    );
 
     this.logger.log(
       'Importing GitHub repository ' +
@@ -201,12 +216,8 @@ export class ProjectsService {
           },
         });
 
-        // Save Vector Embedding
-        const textToEmbed = `${title} ${shortDescription || ''} ${fullDescription || ''}`;
-        const embedding = await this.aiService.generateEmbedding(textToEmbed);
-        if (embedding.length > 0) {
-          const vectorString = `[${embedding.join(',')}]`;
-          await tx.$executeRaw`UPDATE "Project" SET embedding = ${vectorString}::vector WHERE id = ${project.id}`;
+        if (embeddingVector) {
+          await tx.$executeRaw`UPDATE "Project" SET embedding = ${embeddingVector}::vector WHERE id = ${project.id}`;
         }
 
         await tx.projectMember.create({
@@ -511,6 +522,11 @@ export class ProjectsService {
     }
 
     const status = this.mapStatus(data.status) ?? ProjectStatus.DRAFT;
+    const embeddingVector = await this.generateProjectEmbeddingVector(
+      data.title,
+      data.shortDescription,
+      data.fullDescription,
+    );
 
     try {
       const project = await this.prisma.$transaction(async (tx) => {
@@ -529,12 +545,8 @@ export class ProjectsService {
           },
         });
 
-        // Save Vector Embedding
-        const textToEmbed = `${data.title} ${data.shortDescription || ''} ${data.fullDescription || ''}`;
-        const embedding = await this.aiService.generateEmbedding(textToEmbed);
-        if (embedding.length > 0) {
-          const vectorString = `[${embedding.join(',')}]`;
-          await tx.$executeRaw`UPDATE "Project" SET embedding = ${vectorString}::vector WHERE id = ${newProject.id}`;
+        if (embeddingVector) {
+          await tx.$executeRaw`UPDATE "Project" SET embedding = ${embeddingVector}::vector WHERE id = ${newProject.id}`;
         }
 
         await tx.projectMember.create({
@@ -633,6 +645,15 @@ export class ProjectsService {
           project.repository.htmlUrl,
         )
       : null;
+    const embeddingVector = await this.generateProjectEmbeddingVector(
+      data.title ?? project.title,
+      data.shortDescription !== undefined
+        ? data.shortDescription
+        : project.shortDescription,
+      data.fullDescription !== undefined
+        ? data.fullDescription
+        : project.fullDescription,
+    );
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -694,12 +715,8 @@ export class ProjectsService {
           },
         });
 
-        // Save Vector Embedding
-        const textToEmbed = `${updated.title} ${updated.shortDescription || ''} ${updated.fullDescription || ''}`;
-        const embedding = await this.aiService.generateEmbedding(textToEmbed);
-        if (embedding.length > 0) {
-          const vectorString = `[${embedding.join(',')}]`;
-          await tx.$executeRaw`UPDATE "Project" SET embedding = ${vectorString}::vector WHERE id = ${updated.id}`;
+        if (embeddingVector) {
+          await tx.$executeRaw`UPDATE "Project" SET embedding = ${embeddingVector}::vector WHERE id = ${updated.id}`;
         }
 
         return updated;
