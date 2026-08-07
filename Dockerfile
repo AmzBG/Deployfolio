@@ -59,8 +59,7 @@ COPY packages/database/prisma packages/database/prisma
 COPY packages/database/prisma.config.ts packages/database/prisma.config.ts
 COPY scripts/start-api.sh scripts/start-api.sh
 
-RUN mkdir -p apps/api/uploads/profile-pictures apps/api/uploads/project-media \
-    && chmod +x scripts/start-api.sh
+RUN chmod +x scripts/start-api.sh
 
 EXPOSE 3001
 
