@@ -66,6 +66,56 @@ The platform is a production-oriented Turborepo with a Next.js frontend, NestJS 
   </tr>
 </table>
 
+## Search and recruiting workflows
+
+<table>
+  <tr>
+    <th>Natural-language project discovery</th>
+  </tr>
+  <tr>
+    <td><img src=".github/assets/semantic-project-search.png" alt="Deployfolio semantic project search ranking visual and artistic projects for a natural-language query" /></td>
+  </tr>
+  <tr>
+    <td>The query <code>something with artistic elements</code> uses embedding-powered semantic ranking to surface visually relevant engineering work.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th>Multi-technology filtering</th>
+  </tr>
+  <tr>
+    <td><img src=".github/assets/multi-technology-filter.png" alt="Deployfolio project discovery filtered by Next.js, React, and TypeScript" /></td>
+  </tr>
+  <tr>
+    <td>Recruiters can combine technology filters such as <code>Next.js</code>, <code>React</code>, and <code>TypeScript</code> to narrow results to projects with the complete stack.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th>Candidate pipeline</th>
+  </tr>
+  <tr>
+    <td><img src=".github/assets/recruiter-pipeline.png" alt="Deployfolio recruiter candidate pipeline ordered from saved and contacted through accepted and rejected" /></td>
+  </tr>
+  <tr>
+    <td>A widescreen pipeline keeps candidates visible in order across <code>SAVED</code>, <code>CONTACTED</code>, <code>ACCEPTED</code>, and <code>REJECTED</code> stages.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th>AI-assisted profile writing</th>
+  </tr>
+  <tr>
+    <td><img src=".github/assets/ai-profile-enhancement.png" alt="Deployfolio developer profile editor with the Enhance with AI action" /></td>
+  </tr>
+  <tr>
+    <td>Developers can use project-aware AI assistance to improve their headline and biography while retaining control of the final profile copy.</td>
+  </tr>
+</table>
+
 ## Core capabilities
 
 ### For developers
