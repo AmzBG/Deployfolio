@@ -12,13 +12,13 @@
 
 <br />
 
-<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio widescreen product tour showing developer, search, recruiter, AI profile, public portfolio, and administration experiences" width="900" />
+<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio widescreen product tour showing grouped developer, recruiter, and administration experiences" width="900" />
 
 </div>
 
 ## Overview
 
-Deployfolio turns GitHub work into structured, verifiable portfolios. Developers can import repositories, present projects and collaborators, publish a public profile, and understand who is viewing their work. Hiring teams can discover developers through the projects they have actually built, save promising candidates, and move them through a lightweight recruiting pipeline.
+Deployfolio turns GitHub work into structured, verifiable portfolios. Developers can import repositories, publish project pages with verified collaborators, and understand who is viewing their work. Hiring teams can sign in to discover developer profiles through the projects candidates have actually built, save promising candidates, and move them through a lightweight recruiting pipeline. Published project pages are publicly accessible; developer profiles require authentication.
 
 The platform is a production-oriented Turborepo with a Next.js frontend, NestJS API, shared Zod contracts, PostgreSQL with pgvector, Redis-backed queues, S3-compatible media storage, GitHub integration, and role-aware administration.
 
@@ -28,17 +28,17 @@ The platform is a production-oriented Turborepo with a Next.js frontend, NestJS 
   <tr>
     <th width="33%">Developer workspace</th>
     <th width="33%">Project discovery</th>
-    <th width="33%">Public portfolio</th>
+    <th width="33%">Developer profile</th>
   </tr>
   <tr>
     <td><img src=".github/assets/dashboard.png" alt="Deployfolio developer dashboard" /></td>
     <td><img src=".github/assets/explore.png" alt="Deployfolio project discovery" /></td>
-    <td><img src=".github/assets/developer-profile.png" alt="Deployfolio public developer portfolio" /></td>
+    <td><img src=".github/assets/developer-profile.png" alt="Deployfolio authenticated developer profile for recruiter review" /></td>
   </tr>
   <tr>
     <td>GitHub import, publishing status, and automatically detected technology statistics.</td>
     <td>Searchable project cards with verified contributors, technologies, repositories, and live demos.</td>
-    <td>Public proof of ownership and collaboration presented as a recruiter-friendly portfolio.</td>
+    <td>An authenticated, recruiter-friendly profile backed by published projects and verified collaboration.</td>
   </tr>
 </table>
 
@@ -126,7 +126,8 @@ The platform is a production-oriented Turborepo with a Next.js frontend, NestJS 
 - Publish project pages with images, GIFs, videos, diagrams, deployment links, and repository links.
 - Verify project ownership and collaborator relationships through GitHub.
 - Invite contributors with owner, editor, or contributor roles.
-- Build a public developer page from owned and verified collaborative work.
+- Build an authenticated developer profile from owned and verified collaborative work.
+- Publish individual project pages for public viewing.
 - Track portfolio views, project views, unique visitors, referrers, and recruiter traffic.
 - Improve profile copy with project-aware AI suggestions.
 
@@ -144,7 +145,7 @@ The platform is a production-oriented Turborepo with a Next.js frontend, NestJS 
 - Suspend, restore, archive, and review content with auditable actions.
 - Process analytics and email work asynchronously through BullMQ.
 - Store media in S3-compatible object storage, with MinIO available locally.
-- Send transactional mail through AWS SES, Brevo, or Mailpit during development.
+- Send transactional mail through Brevo, with Mailpit available during development.
 
 ## Architecture
 
@@ -172,7 +173,7 @@ Repository analysis combines deterministic technology rules with repository meta
 | Background work | Redis, BullMQ                                                         |
 | AI              | OpenAI API, Transformers.js, `all-MiniLM-L6-v2`                       |
 | Media           | AWS S3-compatible storage, MinIO for local development                |
-| Email           | AWS SES, Brevo, Mailpit                                               |
+| Email           | Brevo, Mailpit                                                        |
 | Tooling         | Turborepo, TypeScript, ESLint, Prettier, GitHub Actions               |
 | Deployment      | AWS Amplify frontend, containerized API                               |
 
@@ -290,7 +291,7 @@ The GitHub Actions workflow runs linting, type checks, and formatting checks for
 - Authentication uses server-side sessions stored in the private database schema and delivered through HttpOnly cookies.
 - API routes are protected by default, with explicit public-route opt-outs and role guards.
 - Every request and response contract is validated through shared Zod schemas.
-- GitHub access tokens are stored separately from public profile data and require an encryption key in production.
+- GitHub access tokens are stored separately from developer profile data and require an encryption key in production.
 - Analytics identifies repeat visits through a configured hash secret instead of storing raw visitor identifiers.
 - Repository scanning excludes sensitive file content from analysis previews.
 
