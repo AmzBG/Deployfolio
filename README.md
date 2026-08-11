@@ -8,7 +8,7 @@
 [![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs)](https://nestjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql)](https://www.postgresql.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![CI](https://img.shields.io/github/actions/workflow/status/AmzBG/public-repo-test/ci.yml?branch=main&label=CI)](https://github.com/AmzBG/public-repo-test/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/AmzBG/Deployfolio/ci.yml?branch=main&label=CI)](https://github.com/AmzBG/Deployfolio/actions)
 
 <br />
 
