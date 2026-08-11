@@ -12,7 +12,7 @@
 
 <br />
 
-<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio product tour showing the developer dashboard, project discovery, and public portfolio" width="420" />
+<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio product tour showing developer, recruiter, public portfolio, and administration experiences" width="420" />
 
 </div>
 
@@ -39,6 +39,21 @@ The platform is a production-oriented Turborepo with a Next.js frontend, NestJS 
     <td>GitHub import, publishing status, and automatically detected technology statistics.</td>
     <td>Searchable project cards with verified contributors, technologies, repositories, and live demos.</td>
     <td>Public proof of ownership and collaboration presented as a recruiter-friendly portfolio.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th width="50%">Recruiter workspace</th>
+    <th width="50%">Administration</th>
+  </tr>
+  <tr>
+    <td><img src=".github/assets/recruiter-workspace.png" alt="Deployfolio recruiter workspace for discovering and saving candidates" /></td>
+    <td><img src=".github/assets/admin-console.png" alt="Deployfolio administration console with platform health and account statistics" /></td>
+  </tr>
+  <tr>
+    <td>Talent discovery with candidate search, engineering profiles, and save-to-pipeline actions.</td>
+    <td>Platform-wide account, project, moderation, technology, and operational health visibility.</td>
   </tr>
 </table>
 
