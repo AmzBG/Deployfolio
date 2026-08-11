@@ -79,10 +79,10 @@ flowchart LR
   Browser["Next.js 16 web app"] -->|REST and HttpOnly session| API["NestJS 11 API"]
   API --> DB["PostgreSQL 18 and pgvector"]
   API --> Queue["Redis and BullMQ"]
-  API --> Storage["S3-compatible storage or MinIO"]
+  API --> Storage["MinIO/S3"]
   API --> GitHub["GitHub OAuth and API"]
   API --> AI["OpenAI summaries and local embeddings"]
-  API --> Mail["SES, Brevo, or Mailpit"]
+  API --> Mail["Mailpit/Brevo"]
 ```
 
 Repository analysis combines deterministic technology rules with repository metadata. Portfolio and developer search use local `all-MiniLM-L6-v2` embeddings stored in pgvector, with keyword search as a fallback. OpenAI is used for repository summaries and profile enhancement, not for the core search embedding pipeline.
