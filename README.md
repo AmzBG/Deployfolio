@@ -12,7 +12,7 @@
 
 <br />
 
-<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio product tour showing developer, recruiter, and public portfolio experiences" width="420" />
+<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio widescreen product tour showing developer, search, recruiter, AI profile, public portfolio, and administration experiences" width="900" />
 
 </div>
 
@@ -47,7 +47,7 @@ The platform is a production-oriented Turborepo with a Next.js frontend, NestJS 
     <th>Recruiter workspace</th>
   </tr>
   <tr>
-    <td align="center"><img src=".github/assets/recruiter-workspace.png" alt="Deployfolio recruiter workspace for discovering and saving candidates" width="420" /></td>
+    <td><img src=".github/assets/recruiter-workspace.png" alt="Deployfolio widescreen recruiter workspace for discovering and saving candidates" /></td>
   </tr>
   <tr>
     <td>Talent discovery with candidate search, engineering profiles, and save-to-pipeline actions.</td>
