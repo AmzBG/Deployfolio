@@ -12,7 +12,7 @@
 
 <br />
 
-<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio product tour showing developer, recruiter, public portfolio, and administration experiences" width="420" />
+<img src=".github/assets/deployfolio-tour.gif" alt="Deployfolio product tour showing developer, recruiter, and public portfolio experiences" width="420" />
 
 </div>
 
@@ -44,16 +44,25 @@ The platform is a production-oriented Turborepo with a Next.js frontend, NestJS 
 
 <table>
   <tr>
-    <th width="50%">Recruiter workspace</th>
-    <th width="50%">Administration</th>
+    <th>Recruiter workspace</th>
   </tr>
   <tr>
-    <td><img src=".github/assets/recruiter-workspace.png" alt="Deployfolio recruiter workspace for discovering and saving candidates" /></td>
-    <td><img src=".github/assets/admin-console.png" alt="Deployfolio administration console with platform health and account statistics" /></td>
+    <td align="center"><img src=".github/assets/recruiter-workspace.png" alt="Deployfolio recruiter workspace for discovering and saving candidates" width="420" /></td>
   </tr>
   <tr>
     <td>Talent discovery with candidate search, engineering profiles, and save-to-pipeline actions.</td>
-    <td>Platform-wide account, project, moderation, technology, and operational health visibility.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th>Administration</th>
+  </tr>
+  <tr>
+    <td><img src=".github/assets/admin-console.png" alt="Deployfolio widescreen administration console with platform health and account statistics" /></td>
+  </tr>
+  <tr>
+    <td>Full-width visibility into accounts, projects, moderation, technologies, and operational health.</td>
   </tr>
 </table>
 
