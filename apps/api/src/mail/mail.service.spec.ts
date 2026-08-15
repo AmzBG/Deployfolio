@@ -16,8 +16,8 @@ describe('MailService', () => {
     process.env.NODE_ENV = 'production';
     process.env.EMAIL_PROVIDER = 'brevo';
     process.env.BREVO_API_KEY = 'test-api-key';
-    process.env.BREVO_FROM_EMAIL = 'verified-sender@example.com';
-    process.env.BREVO_FROM_NAME = 'Deployfolio';
+    process.env.BREVO_SENDER_EMAIL = 'verified-sender@example.com';
+    process.env.BREVO_SENDER_NAME = 'Deployfolio';
 
     const fetchSpy = jest
       .spyOn(global, 'fetch')
@@ -50,5 +50,25 @@ describe('MailService', () => {
       textContent: 'Verification text',
       htmlContent: '<p>Verification HTML</p>',
     });
+  });
+
+  it('fails closed when production Brevo configuration is missing', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.EMAIL_PROVIDER = 'brevo';
+    delete process.env.BREVO_API_KEY;
+    process.env.BREVO_SENDER_EMAIL = 'verified-sender@example.com';
+
+    const fetchSpy = jest.spyOn(global, 'fetch');
+    const service = new MailService();
+
+    await expect(
+      service.sendEmail({
+        to: 'recipient@example.net',
+        from: 'ignored-local-sender@example.org',
+        subject: 'Verify your account',
+        text: 'Verification text',
+      }),
+    ).resolves.toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

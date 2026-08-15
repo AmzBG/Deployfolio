@@ -9,7 +9,7 @@ applications:
             - npm ci
         build:
           commands:
-            - env | grep -e '^API_URL=' -e '^NEXT_PUBLIC_API_URL=' >> apps/web/.env.production || true
+            - env | grep -e '^API_URL=' -e '^API_ORIGIN=' -e '^NEXT_PUBLIC_API_URL=' >> apps/web/.env.production || true
             - npx turbo run build --filter=web
       artifacts:
         baseDirectory: apps/web/.next

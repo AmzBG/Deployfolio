@@ -14,6 +14,14 @@ export class MailService {
   private readonly isProduction = process.env.NODE_ENV === 'production';
 
   constructor() {
+    const brevoSenderEmail =
+      process.env.BREVO_SENDER_EMAIL?.trim() ||
+      process.env.BREVO_FROM_EMAIL?.trim();
+    const brevoSenderName =
+      process.env.BREVO_SENDER_NAME?.trim() ||
+      process.env.BREVO_FROM_NAME?.trim() ||
+      'Deployfolio';
+
     // Only initialize Mailpit in non-production environments
     if (!this.isProduction && process.env.MAILPIT_URL) {
       this.mailpit = new MailpitClient(process.env.MAILPIT_URL);
@@ -24,17 +32,17 @@ export class MailService {
       this.isProduction &&
       process.env.EMAIL_PROVIDER === 'brevo' &&
       process.env.BREVO_API_KEY &&
-      process.env.BREVO_FROM_EMAIL
+      brevoSenderEmail
     ) {
       this.brevoApiKey = process.env.BREVO_API_KEY;
-      this.brevoFromEmail = process.env.BREVO_FROM_EMAIL;
-      this.brevoFromName = process.env.BREVO_FROM_NAME || 'Deployfolio';
+      this.brevoFromEmail = brevoSenderEmail;
+      this.brevoFromName = brevoSenderName;
       this.logger.log(
         `Brevo email client initialized with sender: ${this.brevoFromEmail}`,
       );
     } else if (this.isProduction && process.env.EMAIL_PROVIDER === 'brevo') {
       this.logger.error(
-        'BREVO_API_KEY and BREVO_FROM_EMAIL must be set when EMAIL_PROVIDER is brevo. Production email functionality is disabled.',
+        'BREVO_API_KEY and BREVO_SENDER_EMAIL must be set when EMAIL_PROVIDER is brevo. Production email functionality is disabled.',
       );
     } else if (this.isProduction && process.env.SES_FROM_EMAIL) {
       this.ses = new SESv2Client({
