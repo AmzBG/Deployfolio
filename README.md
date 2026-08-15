@@ -297,8 +297,9 @@ The GitHub Actions workflow runs linting, type checks, and formatting checks for
 
 ## Deployment
 
+- [`infrastructure/`](infrastructure/README.md) contains the cost-conscious Pulumi AWS stack, environment setup, preview workflow, pause/resume procedure, and existing-resource adoption guide.
 - [`amplify.yml`](amplify.yml) builds the Next.js frontend for AWS Amplify.
-- [`Dockerfile`](Dockerfile) produces the production NestJS API image. Set `RUN_DATABASE_MIGRATIONS=true` to apply committed migrations during container startup.
+- [`apps/api/Dockerfile`](apps/api/Dockerfile) produces the production NestJS API image used by Pulumi and applies committed Prisma migrations before the API starts.
 - Production deployments should provide managed PostgreSQL with pgvector, Redis, S3-compatible object storage, and an email provider through environment variables.
 
 ---
