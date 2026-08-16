@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import * as aws from '@pulumi/aws';
+import * as awsNative from '@pulumi/aws-native';
 import * as dockerBuild from '@pulumi/docker-build';
 import * as pulumi from '@pulumi/pulumi';
 import * as random from '@pulumi/random';
@@ -11,7 +12,7 @@ import type { MediaStorage } from './storage';
 
 export interface ApiService {
   repository: aws.ecr.Repository;
-  service?: aws.ecs.ExpressGatewayService;
+  service?: awsNative.ecs.ExpressGatewayService;
   endpoint: pulumi.Output<string>;
 }
 
@@ -73,7 +74,8 @@ export function createApiService(
       special: false,
     }).result;
   const currentRegion = aws.getRegionOutput({});
-  const stableEndpoint = pulumi.interpolate`https://${config.prefix}-api.ecs.${currentRegion.name}.on.aws`;
+  const stableEndpointValue = `https://${config.prefix}-api.ecs.${config.awsRegion}.on.aws`;
+  const stableEndpoint = pulumi.output(stableEndpointValue);
 
   if (!config.runtimeEnabled) {
     return {
@@ -212,41 +214,40 @@ export function createApiService(
     tags: { Name: `${config.prefix}-api` },
   });
 
-  const service = new aws.ecs.ExpressGatewayService(
+  const awsNativeProvider = new awsNative.Provider('aws-native-provider', {
+    region: config.awsRegion as awsNative.Region,
+    profile: config.awsProfile,
+  });
+
+  const service = new awsNative.ecs.ExpressGatewayService(
     'api-service',
     {
       serviceName: `${config.prefix}-api`,
-      cluster: cluster.name,
+      cluster: cluster.arn,
       cpu: config.apiCpu,
       memory: config.apiMemory,
       executionRoleArn: taskExecutionRole.arn,
       infrastructureRoleArn: infrastructureRole.arn,
       taskRoleArn: taskRole.arn,
       healthCheckPath: '/',
-      networkConfigurations: [
-        {
-          subnets: network.publicSubnets.map((subnet) => subnet.id),
-          securityGroups: [network.apiSecurityGroup.id],
-        },
-      ],
-      scalingTargets: [
-        {
-          minTaskCount: 1,
-          maxTaskCount: 1,
-          autoScalingMetric: 'AVERAGE_CPU',
-          autoScalingTargetValue: 70,
-        },
-      ],
+      networkConfiguration: {
+        subnets: network.publicSubnets.map((subnet) => subnet.id),
+        securityGroups: [network.apiSecurityGroup.id],
+      },
+      scalingTarget: {
+        minTaskCount: 1,
+        maxTaskCount: 1,
+        autoScalingMetric: 'AVERAGE_CPU',
+        autoScalingTargetValue: 70,
+      },
       primaryContainer: {
         image: image.ref,
         containerPort: 3001,
-        awsLogsConfigurations: [
-          {
-            logGroup: logGroup.name,
-            logStreamPrefix: 'api',
-          },
-        ],
-        environments: [
+        awsLogsConfiguration: {
+          logGroup: logGroup.name,
+          logStreamPrefix: 'api',
+        },
+        environment: [
           { name: 'NODE_ENV', value: 'production' },
           { name: 'EMAIL_PROVIDER', value: 'brevo' },
           { name: 'APP_URL', value: frontend.appUrl },
@@ -303,8 +304,7 @@ export function createApiService(
           },
         ],
       },
-      waitForSteadyState: true,
-      tags: { Name: `${config.prefix}-api` },
+      tags: [{ key: 'Name', value: `${config.prefix}-api` }],
     },
     {
       dependsOn: [
@@ -317,12 +317,12 @@ export function createApiService(
         ...(data.cache ? [data.cache] : []),
       ],
       customTimeouts: { create: '30m', update: '30m', delete: '30m' },
+      provider: awsNativeProvider,
     },
   );
 
-  const endpoint = service.ingressPaths.apply((paths) => {
-    const value = paths[0]?.endpoint;
-    if (!value) throw new pulumi.RunError('ECS Express returned no endpoint.');
+  const endpoint = service.endpoint.apply((value) => {
+    if (!value) return stableEndpointValue;
     return value.startsWith('http') ? value : `https://${value}`;
   });
 

@@ -5,6 +5,8 @@ import * as pulumi from '@pulumi/pulumi';
 export interface InfrastructureConfig {
   name: string;
   prefix: string;
+  awsRegion: string;
+  awsProfile?: string;
   branchName: string;
   githubRepositoryUrl: string;
   githubAccessToken: pulumi.Output<string>;
@@ -151,6 +153,7 @@ function validateAdminCidr(value: string | undefined): string | undefined {
 
 export function loadConfig(): InfrastructureConfig {
   const config = new pulumi.Config();
+  const awsConfig = new pulumi.Config('aws');
   const stack = pulumi.getStack();
   const name = cleanName(config.get('name') ?? 'deployfolio');
   const prefix = cleanName(`${name}-${stack}`);
@@ -177,6 +180,8 @@ export function loadConfig(): InfrastructureConfig {
   return {
     name,
     prefix,
+    awsRegion: awsConfig.get('region') ?? 'us-west-2',
+    awsProfile: awsConfig.get('profile'),
     branchName: config.get('branchName') ?? 'main',
     githubRepositoryUrl,
     githubAccessToken: requiredSecret(
