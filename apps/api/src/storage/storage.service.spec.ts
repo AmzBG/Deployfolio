@@ -42,6 +42,24 @@ describe('ObjectStorageService', () => {
     ).toBeNull();
   });
 
+  it('downloads an object with its content type', async () => {
+    send.mockResolvedValue({
+      Body: {
+        transformToByteArray: jest
+          .fn()
+          .mockResolvedValue(Uint8Array.from([1, 2, 3])),
+      },
+      ContentType: 'image/jpeg',
+    });
+
+    await expect(
+      service.download('profile-pictures/original.jpg'),
+    ).resolves.toEqual({
+      body: Buffer.from([1, 2, 3]),
+      contentType: 'image/jpeg',
+    });
+  });
+
   it('deduplicates keys before deletion', async () => {
     send.mockResolvedValue({});
 
