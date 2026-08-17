@@ -1,4 +1,6 @@
 import { Test } from '@nestjs/testing';
+import { StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UpdateProfileRequest, UserResponse } from '@repo/contracts';
@@ -10,7 +12,12 @@ describe('AuthController', () => {
   const mockAuthService = {
     updateProfile: jest.fn(),
   };
-  const objectStorage = { upload: jest.fn(), deleteMany: jest.fn() };
+  const objectStorage = {
+    upload: jest.fn(),
+    download: jest.fn(),
+    deleteMany: jest.fn(),
+    keyFromPublicUrl: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -79,5 +86,37 @@ describe('AuthController', () => {
       controller.uploadProfilePicture({ file: [file], originalFile: [file] }),
     ).rejects.toThrow('The uploaded file is not a valid image');
     expect(objectStorage.upload).not.toHaveBeenCalled();
+  });
+
+  it('streams the authenticated user original profile picture', async () => {
+    objectStorage.keyFromPublicUrl.mockReturnValue(
+      'profile-pictures/original.jpg',
+    );
+    objectStorage.download.mockResolvedValue({
+      body: Buffer.from('image'),
+      contentType: 'image/jpeg',
+    });
+    const setHeader = jest.fn();
+    const response = { setHeader } as unknown as Response;
+
+    const result = await controller.downloadOriginalProfilePicture(
+      {
+        developerProfile: {
+          profilePictureOriginalUrl:
+            'http://localhost:9000/bootcamp-media/profile-pictures/original.jpg',
+        },
+      } as never,
+      response,
+    );
+
+    expect(result).toBeInstanceOf(StreamableFile);
+    expect(objectStorage.download).toHaveBeenCalledWith(
+      'profile-pictures/original.jpg',
+    );
+    expect(setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
+    expect(setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      'private, no-store',
+    );
   });
 });

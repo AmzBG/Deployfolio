@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { API_URL } from '@/lib/api';
 
 const PREVIEW_SIZE = 320;
 const OUTPUT_SIZE = 512;
@@ -193,11 +194,8 @@ export function ProfilePictureEditorDialog({
 
     setIsLoadingCurrentImage(true);
     try {
-      const response = await fetch(currentOriginalImageUrl, {
-        // Media objects are public through the CDN. Omitting credentials keeps
-        // this compatible with both legacy /uploads URLs and cross-origin S3/
-        // CloudFront URLs without requiring credentialed CORS.
-        credentials: 'omit',
+      const response = await fetch(`${API_URL}/auth/profile/picture/original`, {
+        credentials: 'include',
       });
       if (!response.ok) throw new Error('Unable to load current image');
 
