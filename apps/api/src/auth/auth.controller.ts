@@ -13,6 +13,8 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
@@ -20,6 +22,7 @@ import {
   ApiConsumes,
   ApiCookieAuth,
   ApiOperation,
+  ApiProduces,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -308,6 +311,30 @@ export class AuthController {
           }
         : null,
     };
+  }
+
+  @Get('profile/picture/original')
+  @ApiCookieAuth('session')
+  @ApiOperation({ summary: 'Download the current original profile picture' })
+  @ApiProduces('image/jpeg', 'image/png', 'image/webp', 'image/gif')
+  @ApiResponse({ status: 200, description: 'Original profile picture' })
+  @ApiResponse({ status: 404, description: 'Original profile picture missing' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid session' })
+  async downloadOriginalProfilePicture(
+    @CurrentUser() user: PopulatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const key = this.objectStorage.keyFromPublicUrl(
+      user.developerProfile?.profilePictureOriginalUrl,
+    );
+    if (!key) {
+      throw new NotFoundException('Original profile picture is unavailable');
+    }
+
+    const object = await this.objectStorage.download(key);
+    response.setHeader('Content-Type', object.contentType);
+    response.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(object.body);
   }
 
   @Post('profile/picture')

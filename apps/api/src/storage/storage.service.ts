@@ -1,5 +1,6 @@
 import {
   DeleteObjectsCommand,
+  GetObjectCommand,
   PutObjectCommand,
   type ObjectIdentifier,
   type S3Client,
@@ -20,6 +21,11 @@ import {
 export interface StoredObject {
   key: string;
   publicUrl: string;
+}
+
+export interface DownloadedObject {
+  body: Buffer;
+  contentType: string;
 }
 
 @Injectable()
@@ -76,6 +82,28 @@ export class ObjectStorageService {
     }
 
     return { key, publicUrl: this.publicUrl(key) };
+  }
+
+  async download(key: string): Promise<DownloadedObject> {
+    try {
+      const object = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      if (!object.Body) throw new Error('Object body is empty');
+
+      return {
+        body: Buffer.from(await object.Body.transformToByteArray()),
+        contentType: object.ContentType ?? 'application/octet-stream',
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to download object ${key}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new ServiceUnavailableException(
+        'Object storage is temporarily unavailable',
+      );
+    }
   }
 
   async delete(key: string): Promise<void> {
